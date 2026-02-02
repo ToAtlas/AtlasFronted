@@ -15,6 +15,7 @@
     "lint": "eslint . --fix --cache"
   },
   "dependencies": {
+    "@arco-design/web-vue": "^2.57.0",
     "@harbour-enterprises/superdoc": "^1.8.3",
     "pinia": "^3.0.4",
     "vue": "^3.5.26",

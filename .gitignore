@@ -32,3 +32,6 @@ coverage
 
 # Vitest
 __screenshots__/
+
+# Local agent configuration
+agent.md
