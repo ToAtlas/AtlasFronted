@@ -224,8 +224,21 @@ export const useAuthStore = defineStore('auth', () => {
       }
     }
     catch (e: any) {
-      error.value = e.message;
-      clearVerificationState(); // 失败时清理所有验证状态
+      // 记录错误信息
+      const message = e?.message || '验证失败，请重试';
+      error.value = message;
+
+      // 仅在不可恢复的错误（如 token 过期/无效）时清理验证状态
+      const lowerMsg = String(message).toLowerCase();
+      const isCriticalError =
+        lowerMsg.includes('expired') ||
+        lowerMsg.includes('过期') ||
+        (lowerMsg.includes('token') && (lowerMsg.includes('invalid') || lowerMsg.includes('missing'))) ||
+        lowerMsg.includes('重置令牌缺失');
+
+      if (isCriticalError) {
+        clearVerificationState();
+      }
       return null; // 返回 null 表示失败
     }
     finally {
