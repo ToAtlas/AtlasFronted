@@ -56,7 +56,8 @@ onMounted(async () => {
 
   // 2. 获取认证配置（带缓存，判断是否需要重新获取）
   const performance = window.performance
-  const isPageRefresh = performance.navigation?.type === 1 || performance.getEntriesByType('navigation')[0]?.type === 'reload'
+  const navigationEntry = performance.getEntriesByType?.('navigation')?.[0] as PerformanceNavigationTiming | PerformanceEntry | undefined
+  const isPageRefresh = (navigationEntry as PerformanceNavigationTiming | undefined)?.type === 'reload'
   await configStore.fetchAuthConfig(isPageRefresh);
 
   // 3. 检测邮件验证链接参数
