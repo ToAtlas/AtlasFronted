@@ -25,7 +25,7 @@ const errorMessage = ref('');
 
 const passwordValidator = (value: string, callback: (error?: string) => void) => {
   // 密码必须至少为8位，且包含字母和数字
-  const regex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$/;
+  const regex = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/;
   if (value && !regex.test(value)) {
     callback('密码必须至少为8位，且包含字母和数字');
   } else {
