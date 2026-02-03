@@ -77,7 +77,7 @@ const authMock: MockMethod[] = [
     url: '/v1/auth/signup/using-email',
     method: 'post',
     response: ({ body }: { body: any }) => {
-      const { name, email, password, passwordConfirm } = body;
+      const { email, password, passwordConfirm } = body;
       if (email === existingUser.email) {
         return {
           code: 400,
