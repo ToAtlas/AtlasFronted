@@ -31,19 +31,19 @@ const handleSubmit = async ({ values, errors }: { values: any, errors: any }) =>
 
     const result = await response.json();
 
-    if (result.success) {
+    if (result.code === 200) {
       Message.success('验证码已发送，请注意查收');
 
-      // 存储到 sessionStorage
-      sessionStorage.setItem('verification_token', result.data.verificationToken);
-      sessionStorage.setItem('verification_email', values.email);
-      sessionStorage.setItem('verification_type', 'forgot-password');
-
-      // emit 事件让 AuthenticationCard 切换表单
+      // emit 事件让 AuthenticationCard 切换表单，并传递 verificationToken
       emit('show-verification', {
         email: values.email,
-        mode: 'forgot-password'
+        mode: 'forgot-password',
+        verificationToken: result.data.verificationToken
       });
+    } else if (result.code === 429) {
+      errorMessage.value = result.message || '操作过于频繁，请稍后再试';
+    } else if (result.code === 401) {
+      errorMessage.value = result.message || '账号验证失败';
     } else {
       errorMessage.value = result.message || '发送验证码失败';
     }

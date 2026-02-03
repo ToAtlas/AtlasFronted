@@ -9,6 +9,7 @@ const existingUser = {
 // 固定的测试 token（方便测试）
 const TEST_VERIFICATION_TOKEN = 'test-token-123456';
 const TEST_EMAIL_TOKEN = 'email-link-token-789';
+const TEST_PASSWORD_RESET_TOKEN = 'reset-token-654321';
 
 const authMock: MockMethod[] = [
   // 获取认证配置接口
@@ -65,7 +66,11 @@ const authMock: MockMethod[] = [
   {
     url: '/v1/auth/logout',
     method: 'post',
-    response: () => ({ success: true }),
+    response: () => ({
+      code: 200,
+      message: '注销成功',
+      data: null,
+    }),
   },
   // 注册接口
   {
@@ -91,7 +96,7 @@ const authMock: MockMethod[] = [
         code: 200,
         message: '验证码已发送',
         data: {
-          verificationToken: TEST_VERIFICATION_TOKEN,  // 使用固定 token
+          verificationToken: TEST_VERIFICATION_TOKEN, // 使用固定 token
         },
       };
     },
@@ -101,26 +106,36 @@ const authMock: MockMethod[] = [
     url: '/v1/auth/verify-code',
     method: 'post',
     response: ({ body }: { body: any }) => {
-      const { verificationToken, code } = body;
-      
+      const { verificationToken, code, type } = body;
+
       // 验证 token 是否存在
       if (!verificationToken) {
-        return { success: false, message: '验证令牌无效' };
-      }
-      
-      // 验证 token 是否正确（测试 token 或任意 GUID）
-      if (verificationToken !== TEST_VERIFICATION_TOKEN && !verificationToken.includes('-')) {
-        return { success: false, message: 'Token 无效或已过期' };
-      }
-      
-      // 验证码校验
-      if (code !== '114514') {
-        return { success: false, message: '验证码错误' };
+        return { code: 400, message: '验证令牌无效', data: null };
       }
 
-      // 验证成功，返回访问令牌
+      // 验证 token 是否正确（测试 token 或任意 GUID）
+      if (verificationToken !== TEST_VERIFICATION_TOKEN && !verificationToken.includes('-')) {
+        return { code: 400, message: 'Token 无效或已过期', data: null };
+      }
+
+      // 验证码校验
+      if (code !== '114514') {
+        return { code: 400, message: '验证码错误', data: null };
+      }
+
+      // 验证成功
+      if (type === 'forgot-password') {
+        return {
+          code: 200,
+          message: '验证成功',
+          data: {
+            passwordResetToken: TEST_PASSWORD_RESET_TOKEN,
+          },
+        };
+      }
+
       return {
-        success: true,
+        code: 200,
         message: '验证成功',
         data: {
           accessToken: Mock.Random.guid(),
@@ -135,21 +150,31 @@ const authMock: MockMethod[] = [
     url: '/v1/auth/verify-token',
     method: 'post',
     response: ({ body }: { body: any }) => {
-      const { token } = body;
-      
+      const { token, type } = body;
+
       // 验证 token
       if (!token) {
-        return { success: false, message: 'Token 无效' };
+        return { code: 400, message: 'Token 无效', data: null };
       }
-      
+
       // 只接受测试邮件 token
       if (token !== TEST_EMAIL_TOKEN) {
-        return { success: false, message: 'Token 无效或已过期' };
+        return { code: 400, message: 'Token 无效或已过期', data: null };
       }
-      
-      // 验证成功，返回访问令牌
+
+      // 验证成功
+      if (type === 'forgot-password') {
+        return {
+          code: 200,
+          message: '验证成功',
+          data: {
+            passwordResetToken: TEST_PASSWORD_RESET_TOKEN,
+          },
+        };
+      }
+
       return {
-        success: true,
+        code: 200,
         message: '验证成功',
         data: {
           accessToken: Mock.Random.guid(),
@@ -167,14 +192,16 @@ const authMock: MockMethod[] = [
       const { email } = body;
       if (email !== existingUser.email) {
         return {
-          success: false,
+          code: 400,
           message: '该邮箱未注册',
+          data: null,
         };
       }
       return {
-        success: true,
+        code: 200,
+        message: '验证码已发送',
         data: {
-          verificationToken: TEST_VERIFICATION_TOKEN,  // 使用固定 token
+          verificationToken: TEST_VERIFICATION_TOKEN, // 使用固定 token
         },
       };
     },
@@ -184,20 +211,57 @@ const authMock: MockMethod[] = [
     url: '/v1/auth/reset-password',
     method: 'post',
     response: ({ body }: { body: any }) => {
-      const { password, passwordConfirm } = body;
-      if (password !== passwordConfirm) {
+      const { email, passwordResetToken, password, passwordConfirm } = body;
+
+      if (!email) {
         return {
-          success: false,
-          message: '两次输入的密码不一致',
+          code: 400,
+          message: '邮箱不能为空',
+          data: null,
         };
       }
+
+      if (email !== existingUser.email) {
+        return {
+          code: 400,
+          message: '该邮箱未注册',
+          data: null,
+        };
+      }
+
+      if (!passwordResetToken) {
+        return {
+          code: 400,
+          message: '重置令牌无效',
+          data: null,
+        };
+      }
+
+      if (passwordResetToken !== TEST_PASSWORD_RESET_TOKEN && !passwordResetToken.includes('-')) {
+        return {
+          code: 400,
+          message: '重置令牌无效或已过期',
+          data: null,
+        };
+      }
+
+      if (password !== passwordConfirm) {
+        return {
+          code: 400,
+          message: '两次输入的密码不一致',
+          data: null,
+        };
+      }
+
       // 简单模拟成功
       return {
-        success: true,
+        code: 200,
+        message: '重置成功',
+        data: null,
       };
     },
   },
-    // 认证配置接口 - 返回认证相关配置
+  // 认证配置接口 - 返回认证相关配置
   {
     url: '/v1/auth/config',
     method: 'get',

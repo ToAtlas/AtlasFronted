@@ -55,16 +55,16 @@ const handleSubmit = async ({ values, errors }: { values: any, errors: any }) =>
     if (result.code === 200) {
       Message.success('验证码已发送！');
 
-      // 存储到 sessionStorage
-      sessionStorage.setItem('verification_token', result.data.verificationToken);
-      sessionStorage.setItem('verification_email', values.email);
-      sessionStorage.setItem('verification_type', 'signup');
-
-      // emit 事件让 AuthenticationCard 切换表单
+      // emit 事件让 AuthenticationCard 切换表单，并传递 verificationToken
       emit('show-verification', {
         email: values.email,
-        mode: 'signup'
+        mode: 'signup',
+        verificationToken: result.data.verificationToken
       });
+    } else if (result.code === 429) {
+      errorMessage.value = result.message || '操作过于频繁，请稍后再试。';
+    } else if (result.code === 401) {
+      errorMessage.value = result.message || '账号验证失败';
     } else {
       errorMessage.value = result.message || '注册失败，请稍后再试。';
     }
@@ -99,7 +99,7 @@ const handleSubmit = async ({ values, errors }: { values: any, errors: any }) =>
       <a-input-password v-model="formModel.password" placeholder="请输入您的密码" size="large" :disabled="loading" />
     </a-form-item>
 
-    <a-form-item field="passwordConfirm" hide-label :rules="[{ required: true, message: '请再次输入密码' }, { validator: (value, cb) => value !== formModel.password ? cb('两次输入的密码不一致') : cb() }]" class="input-item">
+    <a-form-item field="passwordConfirm" hide-label :rules="[{ required: true, message: '请再次输入密码' }, { validator: (value: string, cb: (error?: string) => void) => value !== formModel.password ? cb('两次输入的密码不一致') : cb() }]" class="input-item">
       <a-input-password v-model="formModel.passwordConfirm" placeholder="请再次输入您的密码" size="large" :disabled="loading" />
     </a-form-item>
 

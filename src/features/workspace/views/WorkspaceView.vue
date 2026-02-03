@@ -35,13 +35,13 @@ const handleLogout = async () => {
 
     const result = await response.json();
 
-    // 根据新的响应结构检查 `success` 字段
-    if (result.success) {
+    // 根据 code 判断结果（200 成功，其它失败）
+    if (result.code === 200) {
       authStore.logout(); // 使用 auth store 清除 token
       Message.success('注销成功');
       router.push({ name: 'login' });
     } else {
-      Message.error('注销失败');
+      Message.error(result.message || '注销失败');
     }
   } catch (error) {
     Message.error('请求失败，请稍后再试');

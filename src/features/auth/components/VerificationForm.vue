@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, reactive, defineProps, computed, ref } from 'vue';
+import { onMounted, reactive, computed, ref } from 'vue';
 import { Message } from '@arco-design/web-vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
@@ -58,23 +58,40 @@ const verifyEmailToken = async () => {
     });
     const result = await response.json();
 
-    if (result.success) {
+    if (result.code === 200) {
       Message.success('验证成功！');
-      
-      // 保存验证信息到 sessionStorage
-      sessionStorage.setItem('verification_type', props.mode);
-      if (props.email) {
-        sessionStorage.setItem('verification_email', props.email);
+
+      // 如果是找回密码流程，保存重置密码 token
+      if (props.mode === 'forgot-password') {
+        if (result.data?.passwordResetToken) {
+          authStore.setPasswordResetToken(result.data.passwordResetToken);
+        } else {
+          errorMessage.value = '重置令牌缺失，请重新验证';
+          isEmailLinkMode.value = false;
+          return;
+        }
       }
-      
+
       emit('verification-success', result);
+    } else if (result.code === 401) {
+      errorMessage.value = result.message || '账号验证失败';
+      // 验证失败，清空状态
+      authStore.clearVerificationState();
+      isEmailLinkMode.value = false;
+    } else if (result.code === 429) {
+      errorMessage.value = result.message || '操作过于频繁，请稍后再试';
+      // 操作频繁，清空状态让用户重新开始
+      authStore.clearVerificationState();
+      isEmailLinkMode.value = false;
     } else {
       errorMessage.value = result.message || '验证链接无效或已过期';
-      isEmailLinkMode.value = false; // 失败后切换到手动模式
+      authStore.clearVerificationState();
+      isEmailLinkMode.value = false;
     }
   } catch (error) {
     errorMessage.value = '网络请求失败';
-    isEmailLinkMode.value = false; // 失败后切换到手动模式
+    authStore.clearVerificationState();
+    isEmailLinkMode.value = false;
   } finally {
     loading.value = false;
   }
@@ -105,11 +122,12 @@ const handleSubmit = async ({ values, errors }: { values: any, errors: any }) =>
   errorMessage.value = '';
 
   try {
-    // 从 sessionStorage 获取 tempToken
-    const tempToken = sessionStorage.getItem('verification_token') || props.tempToken;
+    // 从 store 获取 verificationToken
+    const tempToken = authStore.verificationState.verificationToken || props.tempToken;
     
     if (!tempToken) {
       errorMessage.value = '验证会话已过期，请重新获取验证码';
+      authStore.clearVerificationState();
       loading.value = false;
       return;
     }
@@ -120,22 +138,51 @@ const handleSubmit = async ({ values, errors }: { values: any, errors: any }) =>
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
         verificationToken: tempToken,
-        code: values.code 
+        code: values.code,
+        type: props.mode
       }),
     });
     const result = await response.json();
 
-    if (result.success) {
+    if (result.code === 200) {
       Message.success('验证成功！');
+
+      // 如果是找回密码流程，保存重置密码 token
+      if (props.mode === 'forgot-password') {
+        if (result.data?.passwordResetToken) {
+          authStore.setPasswordResetToken(result.data.passwordResetToken);
+        } else {
+          errorMessage.value = '重置令牌缺失，请重新验证';
+          authStore.clearVerificationState();
+          loading.value = false;
+          return;
+        }
+      }
+
       emit('verification-success', result);
+    } else if (result.code === 401) {
+      errorMessage.value = result.message || '账号验证失败';
+      // 验证失败，清空状态
+      authStore.clearVerificationState();
+    } else if (result.code === 429) {
+      errorMessage.value = result.message || '操作过于频繁，请稍后再试';
+      // 操作频繁，清空状态让用户重新开始
+      authStore.clearVerificationState();
     } else {
       errorMessage.value = result.message || '验证码错误或已过期';
     }
   } catch (error) {
     errorMessage.value = '网络请求失败';
+    authStore.clearVerificationState();
   } finally {
     loading.value = false;
   }
+};
+
+// 手动返回登录（清空所有验证状态）
+const handleBackToLogin = () => {
+  authStore.clearVerificationState();
+  emit('show-login');
 };
 </script>
 
@@ -159,8 +206,8 @@ const handleSubmit = async ({ values, errors }: { values: any, errors: any }) =>
         <a-spin size="large" />
       </div>
 
-      <div v-if="errorMessage" class="login-link">
-        <a-link @click="emit('show-login')">返回登录</a-link>
+      <div class="back-to-login">
+        <a-link @click="handleBackToLogin">返回登录</a-link>
       </div>
     </div>
 
@@ -186,8 +233,8 @@ const handleSubmit = async ({ values, errors }: { values: any, errors: any }) =>
         <a-button type="primary" html-type="submit" long size="large" :loading="loading">{{ viewConfig.buttonText }}</a-button>
       </a-form-item>
 
-      <div class="login-link">
-        <a-link @click="emit('show-login')" :disabled="loading">返回登录</a-link>
+      <div class="back-to-login">
+        <a-link @click="handleBackToLogin" :disabled="loading">返回登录</a-link>
       </div>
     </a-form>
   </div>
@@ -237,9 +284,18 @@ const handleSubmit = async ({ values, errors }: { values: any, errors: any }) =>
   margin-bottom: 16px;
 }
 
-.login-link {
+.back-to-login {
   margin-top: 32px;
   width: 100%;
   text-align: left;
+}
+
+.back-to-login :deep(.arco-link) {
+  color: var(--color-text-3);
+  font-size: 14px;
+}
+
+.back-to-login :deep(.arco-link:hover) {
+  color: var(--color-text-2);
 }
 </style>
