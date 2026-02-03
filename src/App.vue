@@ -10,9 +10,13 @@ const configStore = useConfigStore()
 onMounted(async () => {
   // 1. 应用主题
   themeStore.applyTheme()
-  
-  // 2. 拉取全局配置（带缓存，12小时内不重复请求）
-  await configStore.fetchGlobalConfig()
+
+  // 2. 检测是否是页面刷新
+  const performance = window.performance
+  const isPageRefresh = performance.navigation?.type === 1 || performance.getEntriesByType('navigation')[0]?.type === 'reload'
+
+  // 3. 拉取全局配置（刷新时强制拉取最新配置，否则使用缓存）
+  await configStore.fetchGlobalConfig(isPageRefresh)
 })
 </script>
 

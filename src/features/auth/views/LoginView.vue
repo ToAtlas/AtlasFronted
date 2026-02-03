@@ -54,8 +54,10 @@ onMounted(async () => {
     return; // 跳转后不执行动画
   }
 
-  // 2. 拉取认证配置（登录模式、SSO等）- 带缓存，12小时内不重复请求
-  await configStore.fetchAuthConfig();
+  // 2. 获取认证配置（带缓存，判断是否需要重新获取）
+  const performance = window.performance
+  const isPageRefresh = performance.navigation?.type === 1 || performance.getEntriesByType('navigation')[0]?.type === 'reload'
+  await configStore.fetchAuthConfig(isPageRefresh);
 
   // 3. 检测邮件验证链接参数
   if (route.query.verify === 'true' && route.query.token && route.query.type) {
