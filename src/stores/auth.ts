@@ -220,7 +220,20 @@ export const useAuthStore = defineStore('auth', () => {
       }
       else {
         // 验证失败，抛出错误由 catch 处理
-        throw new Error(result.message || '验证失败，请重试');
+        const contextLabel =
+          payload.type === 'signup'
+            ? '注册'
+            : payload.type === 'forgot-password'
+              ? '找回密码'
+              : '验证';
+        const methodLabel = isManual ? '手动输入验证码' : '链接验证';
+        const backendMessage = (typeof result.message === 'string' && result.message.trim().length > 0)
+          ? result.message.trim()
+          : '';
+        const detailedMessage = backendMessage
+          ? `${contextLabel}失败（方式：${methodLabel}）：${backendMessage}`
+          : `${contextLabel}失败（方式：${methodLabel}），请重试`;
+        throw new Error(detailedMessage);
       }
     }
     catch (e: any) {
