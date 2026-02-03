@@ -85,11 +85,11 @@ const handleSsoLogin = () => {
     <!-- 邮箱密码登录表单 - 根据配置显示/隐藏 -->
     <template v-if="configStore.isPasswordEnabled">
       <a-form-item field="email" hide-label :rules="[{ required: true, message: '邮箱不能为空' }, { type: 'email', message: '请输入正确的邮箱格式' }]" class="input-item">
-        <a-input v-model="formModel.email" placeholder="请输入您的邮箱" size="large" :disabled="loading" />
+        <a-input v-model="formModel.email" placeholder="请输入您的邮箱" aria-label="邮箱" size="large" :disabled="loading" />
       </a-form-item>
 
       <a-form-item field="password" hide-label :rules="[{ required: true, message: '密码不能为空' }]" class="input-item last-input-item">
-        <a-input-password v-model="formModel.password" placeholder="请输入您的密码" size="large" :disabled="loading" />
+        <a-input-password v-model="formModel.password" placeholder="请输入您的密码" aria-label="密码" size="large" :disabled="loading" />
       </a-form-item>
 
       <div class="forgot-password-link">
