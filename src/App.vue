@@ -1,12 +1,18 @@
 <script setup lang="ts">
 import { RouterView } from 'vue-router'
 import { useThemeStore } from '@/stores/theme'
+import { useConfigStore } from '@/stores/config'
 import { onMounted } from 'vue'
 
 const themeStore = useThemeStore()
+const configStore = useConfigStore()
 
-onMounted(() => {
+onMounted(async () => {
+  // 1. 应用主题
   themeStore.applyTheme()
+  
+  // 2. 拉取全局配置（带缓存，12小时内不重复请求）
+  await configStore.fetchGlobalConfig()
 })
 </script>
 

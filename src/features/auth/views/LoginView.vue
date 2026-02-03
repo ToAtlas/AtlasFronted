@@ -48,19 +48,16 @@ const typeEffect = async () => {
 };
 
 onMounted(async () => {
-  // 1. 拉取全局配置（品牌名称等）
-  await configStore.fetchGlobalConfig();
-
-  // 2. 检测登录状态，如果已登录且不是切换账号模式，则跳转到工作台
+  // 1. 检测登录状态，如果已登录且不是切换账号模式，则跳转到工作台
   if (authStore.isAuthenticated && !route.query.switch) {
     router.push({ name: 'workspace' });
     return; // 跳转后不执行动画
   }
 
-  // 3. 拉取认证配置（登录模式、SSO等）
+  // 2. 拉取认证配置（登录模式、SSO等）- 带缓存，12小时内不重复请求
   await configStore.fetchAuthConfig();
 
-  // 4. 检测邮件验证链接参数
+  // 3. 检测邮件验证链接参数
   if (route.query.verify === 'true' && route.query.token && route.query.type) {
     const type = route.query.type as string;
     if (type === 'signup' || type === 'forgot-password') {
@@ -73,7 +70,7 @@ onMounted(async () => {
     }
   }
 
-  // 5. 播放动画
+  // 4. 播放动画
   typeEffect();
 });
 </script>

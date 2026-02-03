@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
+import { useConfigStore } from './config';
 
 /**
  * 验证状态接口
@@ -36,11 +37,18 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   // Action: 注销操作
-  function logout() {
+  function logout(clearAuthConfigCache = true) {
     accessToken.value = null;
     refreshToken.value = null;
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
+    
+    // 可选：清理认证配置缓存，下次登录时重新拉取
+    // 这样可以确保用户下次登录时看到最新的认证配置
+    if (clearAuthConfigCache) {
+      const configStore = useConfigStore();
+      configStore.clearAllConfigCache();
+    }
   }
 
   // ==================== 验证状态管理 ====================

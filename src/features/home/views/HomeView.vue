@@ -15,12 +15,9 @@ const handleThemeChange = () => {
   themeStore.applyTheme();
 };
 
-// 拉取全局配置并检测登录状态
-onMounted(async () => {
-  // 1. 拉取全局配置（品牌名称等）
-  await configStore.fetchGlobalConfig();
-
-  // 2. 检测登录状态，如果已登录则跳转到工作台
+// 检测登录状态
+onMounted(() => {
+  // 检测登录状态，如果已登录则跳转到工作台
   if (authStore.isAuthenticated) {
     router.push({ name: 'workspace' });
   }

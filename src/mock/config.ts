@@ -16,6 +16,12 @@ const configMock: MockMethod[] = [
         brand: {
           name: 'Atlas',
           logo: '/src/assets/logo.svg'
+        },
+        // 缓存配置 - 可选，不设置则使用默认12小时
+        cache: {
+          duration: 12 * 60 * 60 * 1000  // 12小时（毫秒）
+          // duration: 1 * 60 * 60 * 1000  // 示例：1小时
+          // duration: 24 * 60 * 60 * 1000  // 示例：24小时
         }
       }
     })
