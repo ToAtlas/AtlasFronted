@@ -62,7 +62,8 @@ const showResetPassword = (email: string) => {
 };
 
 const handleVerificationSuccess = (result: any) => {
-  const verificationType = authStore.verificationState.type;
+  // 使用组件内正确的 mode 状态，而不是 store 的状态
+  const verificationType = verificationMode.value;
 
   if (verificationType === 'signup') {
     // 注册流程的验证成功后，保存 token 并跳转到工作台

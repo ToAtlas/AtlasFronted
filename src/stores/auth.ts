@@ -20,11 +20,15 @@ interface VerificationState {
  * @see https://pinia.vuejs.org/core-concepts/defining-a-store.html#setup-stores
  */
 export const useAuthStore = defineStore('auth', () => {
+  // ==================== 动态状态 ====================
+  // 加载和错误状态
+  const loading = ref(false);
+  const error = ref<string | null>(null);
+
   // ==================== 认证状态 ====================
   // State: 从 localStorage 初始化 state，以保持页面刷新后的登录状态
   const accessToken = ref<string | null>(localStorage.getItem('accessToken'));
   const refreshToken = ref<string | null>(localStorage.getItem('refreshToken'));
-
   // Getter: 一个计算属性，用于判断用户是否已认证
   const isAuthenticated = computed(() => !!accessToken.value);
 
@@ -174,7 +178,66 @@ export const useAuthStore = defineStore('auth', () => {
     saveVerificationState();
   }
 
+  // ==================== 统一验证 Action ====================
+  /**
+   * 统一处理验证码或邮件 Token 验证
+   * @param payload 包含验证所需信息
+   * @returns 成功则返回 API 结果，失败则返回 null
+   */
+  async function unifiedVerify(payload: {
+    token: string; // 可能是 emailLinkToken 或 verificationToken
+    code?: string; // 手动模式下的验证码
+    type: 'signup' | 'forgot-password';
+  }): Promise<any | null> {
+    loading.value = true;
+    error.value = null;
+
+    try {
+      const isManual = !!payload.code;
+      const url = isManual ? '/v1/auth/verify-code' : '/v1/auth/verify-token';
+      const body = isManual
+        ? { verificationToken: payload.token, code: payload.code, type: payload.type }
+        : { token: payload.token, type: payload.type };
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+
+      const result = await response.json();
+
+      if (result.code === 200) {
+        // 验证成功
+        if (payload.type === 'forgot-password') {
+          if (!result.data?.passwordResetToken) {
+            throw new Error('重置令牌缺失，请重新验证');
+          }
+          // 在内部直接设置 passwordResetToken
+          setPasswordResetToken(result.data.passwordResetToken);
+        }
+        return result; // 将成功结果返回给组件
+      }
+      else {
+        // 验证失败，抛出错误由 catch 处理
+        throw new Error(result.message || '验证失败，请重试');
+      }
+    }
+    catch (e: any) {
+      error.value = e.message;
+      clearVerificationState(); // 失败时清理所有验证状态
+      return null; // 返回 null 表示失败
+    }
+    finally {
+      loading.value = false;
+    }
+  }
+
   return {
+    // 加载和错误状态
+    loading,
+    error,
+
     // 认证相关
     accessToken,
     refreshToken,
@@ -189,5 +252,6 @@ export const useAuthStore = defineStore('auth', () => {
     setPasswordResetToken,
     clearVerificationState,
     cleanupAfterVerification,
+    unifiedVerify,
   };
 });
