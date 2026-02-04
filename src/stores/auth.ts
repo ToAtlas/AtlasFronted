@@ -59,8 +59,33 @@ export const useAuthStore = defineStore('auth', () => {
   // 验证状态的过期时间（15分钟）
   const VERIFICATION_TIMEOUT = 15 * 60 * 1000;
 
+  // 当前时间的响应式引用，用于驱动倒计时和过期检测
+  const now = ref(Date.now());
+  // 每秒更新一次当前时间，使依赖于时间的计算属性自动刷新
+  setInterval(() => {
+    now.value = Date.now();
+  }, 1000);
+
   // State: 验证状态（从 sessionStorage 恢复）
   const verificationState = ref<VerificationState>(loadVerificationState());
+
+  // 验证流程的绝对过期时间戳（毫秒），用于在 UI 中展示“将于 XX:XX 过期”
+  const verificationExpiresAt = computed<number | null>(() => {
+    if (!verificationState.value.timestamp) {
+      return null;
+    }
+    return verificationState.value.timestamp + VERIFICATION_TIMEOUT;
+  });
+
+  // 验证流程剩余时间（毫秒），用于在 UI 中实现倒计时展示
+  const verificationRemainingMs = computed<number>(() => {
+    if (!verificationState.value.timestamp) {
+      return 0;
+    }
+    const expiresAt = verificationState.value.timestamp + VERIFICATION_TIMEOUT;
+    const remaining = expiresAt - now.value;
+    return remaining > 0 ? remaining : 0;
+  });
 
   // Getter: 检查是否有活跃的验证流程
   const hasActiveVerification = computed(() => {
@@ -68,7 +93,7 @@ export const useAuthStore = defineStore('auth', () => {
       return false;
     }
     // 检查是否过期
-    const isExpired = Date.now() - verificationState.value.timestamp > VERIFICATION_TIMEOUT;
+    const isExpired = now.value - verificationState.value.timestamp > VERIFICATION_TIMEOUT;
     if (isExpired) {
       clearVerificationState(); // 自动清理过期状态
       return false;
