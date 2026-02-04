@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, reactive, computed, ref } from 'vue';
+import { onMounted, onUnmounted, reactive, computed, ref } from 'vue';
 import { Message } from '@arco-design/web-vue';
 import { useAuthStore } from '@/stores/auth';
 import { useConfigStore } from '@/stores/config';
@@ -35,6 +35,14 @@ const viewConfig = computed(() => {
     title: '重置密码',
     buttonText: '验证并重置密码',
   };
+});
+
+// 格式化剩余时间为 mm:ss
+const countdownText = computed(() => {
+  const totalSeconds = Math.floor(authStore.verificationRemainingMs / 1000);
+  const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
+  const seconds = (totalSeconds % 60).toString().padStart(2, '0');
+  return `${minutes}:${seconds}`;
 });
 
 // 组件加载时的防御性校验和自动验证
@@ -74,7 +82,7 @@ const handleSubmit = async ({ values, errors }: { values: any, errors: any }) =>
   if (errors) return;
 
   // 从 store 获取 verificationToken
-  const tempToken = authStore.verificationState.verificationToken;
+  const tempToken = authStore.verificationStateValue.verificationToken;
   
   if (!tempToken) {
     authStore.error = '验证会话已过期，请重新获取验证码';
@@ -144,6 +152,15 @@ const handleBackToLogin = () => {
         {{ authStore.error }}
       </a-alert>
 
+      <div class="resend-section">
+        <span v-if="authStore.verificationRemainingMs > 0" class="countdown-text">
+          验证码将在 {{ countdownText }} 后失效
+        </span>
+        <span v-else class="debug-text">
+          (调试信息: 倒计时未激活，剩余时间 {{ authStore.verificationRemainingMs }}ms)
+        </span>
+      </div>
+
       <a-form-item field="code" hide-label :rules="[{ required: true, message: '验证码不能为空' }, { length: 6, message: '请输入6位验证码' }]" class="input-item">
         <a-verification-code v-model="formModel.code" :length="6" :disabled="authStore.loading"/>
       </a-form-item>
@@ -195,6 +212,22 @@ const handleBackToLogin = () => {
 
 .verification-form .input-item {
   margin-bottom: 24px;
+}
+
+.resend-section {
+  margin-bottom: 24px;
+  text-align: left;
+}
+
+.countdown-text {
+  color: var(--color-text-3);
+  font-size: 14px;
+}
+
+.debug-text {
+  color: var(--color-warning-text);
+  font-size: 12px;
+  font-style: italic;
 }
 
 .verification-form :deep(.arco-verification-code) {

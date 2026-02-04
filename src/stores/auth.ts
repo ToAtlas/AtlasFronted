@@ -297,8 +297,9 @@ export const useAuthStore = defineStore('auth', () => {
     logout,
     
     // 验证状态相关
-    verificationState,
+    verificationStateValue: computed(() => verificationState.value),
     hasActiveVerification,
+    verificationRemainingMs,
     setVerificationState,
     setPasswordResetToken,
     clearVerificationState,

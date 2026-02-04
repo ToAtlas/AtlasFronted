@@ -41,14 +41,14 @@ const showLogin = () => {
 const showVerification = (payload: { email: string; mode: 'signup' | 'forgot-password'; verificationToken: string }) => {
   emailForFlow.value = payload.email;
   verificationMode.value = payload.mode;
-  
+
   // 将验证状态保存到 store
   authStore.setVerificationState({
     type: payload.mode,
     email: payload.email,
     verificationToken: payload.verificationToken,
   });
-  
+
   currentView.value = VerificationForm;
 };
 
@@ -73,22 +73,22 @@ const handleVerificationSuccess = (result: any) => {
         refreshToken: result.data.refreshToken,
       });
     }
-    
+
     // 清理验证状态
     authStore.clearVerificationState();
-    
+
     // 清除 URL 参数并跳转
     router.push({ name: 'workspace' });
   } else if (verificationType === 'forgot-password') {
     // 找回密码流程的验证成功后，显示重置密码表单
-    const email = authStore.verificationState.email || emailForFlow.value;
-    
+    const email = authStore.verificationStateValue?.email || emailForFlow.value;
+
     // 清理验证码流程的临时信息（但保留 passwordResetToken）
     authStore.cleanupAfterVerification(true);
-    
+
     // 清除 URL 参数
     router.replace({ name: 'login' });
-    
+
     showResetPassword(email);
   }
 };
@@ -99,18 +99,18 @@ onMounted(() => {
   if (props.emailVerificationParams?.verify) {
     return; // 邮件验证链接会在 watch 中处理
   }
-  
+
   // 检查是否有活跃的验证流程（页面刷新后恢复）
   if (authStore.hasActiveVerification) {
-    const state = authStore.verificationState;
-    
+    const state = authStore.verificationStateValue;
+
     // 如果有 passwordResetToken，说明已经验证成功，应该显示重置密码页面
-    if (state.type === 'forgot-password' && state.passwordResetToken && state.email) {
+    if (state && state.type === 'forgot-password' && state.passwordResetToken && state.email) {
       emailForFlow.value = state.email;
       currentView.value = ResetPasswordForm;
-    } 
+    }
     // 否则显示验证码页面
-    else if (state.verificationToken && state.email && state.type) {
+    else if (state && state.verificationToken && state.email && state.type) {
       emailForFlow.value = state.email;
       verificationMode.value = state.type;
       currentView.value = VerificationForm;
