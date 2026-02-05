@@ -43,7 +43,7 @@ const handleSubmit = async ({ values, errors }: { values: any, errors: any }) =>
 
   try {
     // 从 store 获取邮箱和重置令牌
-    const email = props.email || authStore.verificationState.email || '';
+    const email = props.email || authStore.verificationStateValue.email || '';
     if (!email) {
       errorMessage.value = '邮箱缺失，请重新验证';
       authStore.clearVerificationState();
@@ -51,7 +51,7 @@ const handleSubmit = async ({ values, errors }: { values: any, errors: any }) =>
       return;
     }
 
-    const passwordResetToken = authStore.verificationState.passwordResetToken;
+    const passwordResetToken = authStore.verificationStateValue.passwordResetToken;
     if (!passwordResetToken) {
       errorMessage.value = '重置令牌缺失，请重新验证';
       authStore.clearVerificationState();

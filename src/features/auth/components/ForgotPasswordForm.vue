@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue';
 import { Message } from '@arco-design/web-vue';
+import { useConfigStore } from '@/stores/config';
+
+const configStore = useConfigStore();
 
 onMounted(() => {
-  document.title = 'Atlas 找回密码';
+  document.title = `${configStore.brandName} 找回密码`;
 });
 
 const emit = defineEmits(['show-login', 'show-verification']);

@@ -55,16 +55,12 @@ export const useConfigStore = defineStore('config', () => {
   /**
    * 检查缓存是否有效
    * @param timestampKey 时间戳的 localStorage key
-   * @param durationKey 缓存时长的 localStorage key
+   * @param cacheDuration 缓存时长（毫秒）
    */
-  function isCacheValid(timestampKey: string, durationKey: string): boolean {
+  function isCacheValid(timestampKey: string, cacheDuration: number): boolean {
     const timestamp = localStorage.getItem(timestampKey)
     if (!timestamp) return false
-    
-    // 获取缓存时长，优先使用配置的值，否则使用默认值
-    const durationStr = localStorage.getItem(durationKey)
-    const cacheDuration = durationStr ? parseInt(durationStr, 10) : DEFAULT_CACHE_DURATION
-    
+
     const cacheTime = parseInt(timestamp, 10)
     const now = Date.now()
     return (now - cacheTime) < cacheDuration
@@ -72,9 +68,10 @@ export const useConfigStore = defineStore('config', () => {
 
   /**
    * 从 localStorage 加载缓存的配置
+   * @param cacheDuration 缓存时长（毫秒）
    */
-  function loadCachedConfig<T>(cacheKey: string, timestampKey: string, durationKey: string): T | null {
-    if (!isCacheValid(timestampKey, durationKey)) {
+  function loadCachedConfig<T>(cacheKey: string, timestampKey: string, cacheDuration: number): T | null {
+    if (!isCacheValid(timestampKey, cacheDuration)) {
       return null
     }
 
@@ -97,16 +94,21 @@ export const useConfigStore = defineStore('config', () => {
    * @param duration 缓存时长（毫秒），不传则使用默认值
    */
   function saveCachedConfig<T>(
-    cacheKey: string, 
-    timestampKey: string, 
-    durationKey: string,
-    data: T, 
-    duration?: number
+    cacheKey: string,
+    timestampKey: string,
+    data: T,
+    options?: { duration?: number; durationKey?: string }
   ): void {
     try {
       localStorage.setItem(cacheKey, JSON.stringify(data))
       localStorage.setItem(timestampKey, Date.now().toString())
-      localStorage.setItem(durationKey, (duration || DEFAULT_CACHE_DURATION).toString())
+      // Only save duration if a key is provided
+      if (options?.durationKey) {
+        localStorage.setItem(
+          options.durationKey,
+          (options.duration || DEFAULT_CACHE_DURATION).toString()
+        )
+      }
     } catch (error) {
       console.error('Failed to save config to cache:', error)
     }
@@ -177,10 +179,14 @@ export const useConfigStore = defineStore('config', () => {
   async function fetchGlobalConfig(forceRefresh = false) {
     // 1. 尝试从缓存加载（如果不是强制刷新）
     if (!forceRefresh) {
+      // 手动获取缓存时长，因为 loadCachedConfig 现在需要一个数字
+      const durationStr = localStorage.getItem(GLOBAL_CONFIG_DURATION_KEY)
+      const cacheDuration = durationStr ? parseInt(durationStr, 10) : DEFAULT_CACHE_DURATION
+
       const cached = loadCachedConfig<GlobalConfig>(
         GLOBAL_CONFIG_CACHE_KEY,
         GLOBAL_CONFIG_TIMESTAMP_KEY,
-        GLOBAL_CONFIG_DURATION_KEY
+        cacheDuration
       )
       if (cached) {
         console.log('Using cached global config')
@@ -208,11 +214,10 @@ export const useConfigStore = defineStore('config', () => {
         // 保存到缓存，使用后端配置的缓存时长
         const cacheDuration = result.data.cache?.duration
         saveCachedConfig(
-          GLOBAL_CONFIG_CACHE_KEY, 
-          GLOBAL_CONFIG_TIMESTAMP_KEY, 
-          GLOBAL_CONFIG_DURATION_KEY,
+          GLOBAL_CONFIG_CACHE_KEY,
+          GLOBAL_CONFIG_TIMESTAMP_KEY,
           result.data,
-          cacheDuration
+          { duration: cacheDuration, durationKey: GLOBAL_CONFIG_DURATION_KEY }
         )
       } else {
         console.error('Failed to fetch global config:', result.message)
@@ -238,16 +243,16 @@ export const useConfigStore = defineStore('config', () => {
     // 使用全局配置的缓存时长
     if (!forceRefresh) {
       const globalCacheDuration = getGlobalCacheDuration()
-      // 临时保存全局缓存时长用于验证
-      localStorage.setItem(AUTH_CONFIG_TIMESTAMP_KEY + '_duration', globalCacheDuration.toString())
       
       const cached = loadCachedConfig<AuthConfig>(
         AUTH_CONFIG_CACHE_KEY,
         AUTH_CONFIG_TIMESTAMP_KEY,
-        AUTH_CONFIG_TIMESTAMP_KEY + '_duration'
+        globalCacheDuration // 直接传递缓存时长
       )
       if (cached) {
         console.log('Using cached auth config (with global cache duration)')
+        // 清理可能存在的旧的临时 key
+        localStorage.removeItem(AUTH_CONFIG_TIMESTAMP_KEY + '_duration')
         authConfig.value = cached
         return
       }
@@ -269,14 +274,11 @@ export const useConfigStore = defineStore('config', () => {
 
       if (result.code === 200 && result.data) {
         authConfig.value = result.data
-        // 保存到缓存，使用全局配置的缓存时长
-        const globalCacheDuration = getGlobalCacheDuration()
+        // 保存认证配置时，不再保存时长信息，因为它依赖全局配置
         saveCachedConfig(
           AUTH_CONFIG_CACHE_KEY, 
           AUTH_CONFIG_TIMESTAMP_KEY,
-          AUTH_CONFIG_TIMESTAMP_KEY + '_duration',
-          result.data,
-          globalCacheDuration
+          result.data
         )
       } else {
         console.error('Failed to fetch auth config:', result.message)

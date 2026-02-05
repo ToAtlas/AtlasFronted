@@ -56,18 +56,18 @@ const resendButtonText = computed(() => {
 // 组件加载时的防御性校验和自动验证
 onMounted(async () => {
   document.title = `${configStore.brandName} 输入验证码`;
-  
+
   // 防御性校验
   if (!props.mode || !['signup', 'forgot-password'].includes(props.mode)) {
     console.error('VerificationForm: Invalid or missing mode prop. Redirecting to login.');
     emit('show-login');
     return;
   }
-  
+
   // 检测是否为邮件链接模式，并自动验证
   if (props.emailLinkToken) {
     isEmailLinkMode.value = true;
-    
+
     const result = await authStore.unifiedVerify({
       token: props.emailLinkToken,
       type: props.mode,
@@ -91,13 +91,13 @@ const handleSubmit = async ({ values, errors }: { values: any, errors: any }) =>
 
   // 从 store 获取 verificationToken
   const tempToken = authStore.verificationStateValue.verificationToken;
-  
+
   if (!tempToken) {
     authStore.error = '验证会话已过期，请重新获取验证码';
     authStore.clearVerificationState();
     return;
   }
-  
+
   const result = await authStore.unifiedVerify({
     token: tempToken,
     code: values.code,
@@ -161,7 +161,7 @@ const handleBackToLogin = () => {
         {{ viewConfig.title }}
       </a-typography-title>
 
-      <p class="instruction-text">
+      <p id="verification-instruction" class="instruction-text">
         我们向 <span class="email-highlight">{{ props.email }}</span> 发送了一个6位数验证码，请输入。
       </p>
 
@@ -174,19 +174,16 @@ const handleBackToLogin = () => {
         <span v-if="authStore.verificationRemainingMs > 0" class="countdown-text">
           验证码将在 {{ countdownText }} 后失效
         </span>
-        <span v-else class="debug-text">
-          (调试信息: 倒计时未激活，剩余时间 {{ authStore.verificationRemainingMs }}ms)
-        </span>
       </div>
 
       <a-form-item field="code" hide-label :rules="[{ required: true, message: '验证码不能为空' }, { length: 6, message: '请输入6位验证码' }]" class="input-item">
-        <a-verification-code v-model="formModel.code" :length="6" :disabled="authStore.loading"/>
+        <a-verification-code v-model="formModel.code" :length="6" :disabled="authStore.loading" aria-labelledby="verification-instruction"/>
       </a-form-item>
 
       <!-- 重发验证码链接 -->
       <div style="width: 100%; text-align: right; margin-top: -16px; margin-bottom: 24px; height: 22px;">
-        <a-link 
-          @click="handleResendCode" 
+        <a-link
+          @click="handleResendCode"
           :disabled="authStore.loading || authStore.isResendCoolingDown"
         >
           {{ resendButtonText }}
