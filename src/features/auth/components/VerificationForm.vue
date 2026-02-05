@@ -45,6 +45,14 @@ const countdownText = computed(() => {
   return `${minutes}:${seconds}`;
 });
 
+// 重发按钮的动态文本
+const resendButtonText = computed(() => {
+  if (authStore.isResendCoolingDown) {
+    return `重新发送 (${authStore.resendCooldownSeconds}s)`;
+  }
+  return '重新发送验证码';
+});
+
 // 组件加载时的防御性校验和自动验证
 onMounted(async () => {
   document.title = `${configStore.brandName} 输入验证码`;
@@ -102,6 +110,16 @@ const handleSubmit = async ({ values, errors }: { values: any, errors: any }) =>
   }
   // 失败时，authStore.error 会被设置，模板会自动显示错误信息
 };
+
+// 点击重发验证码
+const handleResendCode = async () => {
+  const success = await authStore.resendVerificationCode();
+  if (success) {
+    Message.success('新的验证码已发送，请注意查收');
+  }
+  // 失败时的错误信息由 store 自动设置并显示在模板中
+};
+
 
 // 手动返回登录（清空所有验证状态）
 const handleBackToLogin = () => {
@@ -164,6 +182,16 @@ const handleBackToLogin = () => {
       <a-form-item field="code" hide-label :rules="[{ required: true, message: '验证码不能为空' }, { length: 6, message: '请输入6位验证码' }]" class="input-item">
         <a-verification-code v-model="formModel.code" :length="6" :disabled="authStore.loading"/>
       </a-form-item>
+
+      <!-- 重发验证码链接 -->
+      <div style="width: 100%; text-align: right; margin-top: -16px; margin-bottom: 24px; height: 22px;">
+        <a-link 
+          @click="handleResendCode" 
+          :disabled="authStore.loading || authStore.isResendCoolingDown"
+        >
+          {{ resendButtonText }}
+        </a-link>
+      </div>
 
       <a-form-item class="button-item">
         <!-- 加载状态现在从 store 获取 -->

@@ -66,6 +66,22 @@ export const useAuthStore = defineStore('auth', () => {
     now.value = Date.now();
   }, 1000);
 
+  // State: 重发冷却结束时间戳
+  const resendCooldownEndTimestamp = ref<number | null>(null);
+
+  // Getter: 是否处于重发冷却中
+  const isResendCoolingDown = computed(() => {
+    return !!(resendCooldownEndTimestamp.value && now.value < resendCooldownEndTimestamp.value);
+  });
+
+  // Getter: 冷却剩余秒数
+  const resendCooldownSeconds = computed(() => {
+    if (!isResendCoolingDown.value || !resendCooldownEndTimestamp.value) {
+      return 0;
+    }
+    return Math.floor((resendCooldownEndTimestamp.value - now.value) / 1000);
+  });
+
   // State: 验证状态（从 sessionStorage 恢复）
   const verificationState = ref<VerificationState>(loadVerificationState());
 
@@ -177,6 +193,7 @@ export const useAuthStore = defineStore('auth', () => {
    */
   function clearVerificationState() {
     verificationState.value = createEmptyVerificationState();
+    resendCooldownEndTimestamp.value = null; // 清除重发冷却
     sessionStorage.removeItem('verification_state');
   }
 
@@ -198,12 +215,75 @@ export const useAuthStore = defineStore('auth', () => {
       };
     } else {
       // 注册流程：完全清空
-      verificationState.value = createEmptyVerificationState();
+      clearVerificationState();
     }
     saveVerificationState();
   }
 
-  // ==================== 统一验证 Action ====================
+  // ==================== 统一验证与重发 Actions ====================
+
+  /**
+   * 重发验证码
+   * @returns 成功返回 true，失败返回 false
+   */
+  async function resendVerificationCode(): Promise<boolean> {
+    // 前置检查：必须有激活的验证流程且不在冷却中
+    if (!hasActiveVerification.value) {
+      error.value = '验证会话已失效，请返回重新开始。';
+      return false;
+    }
+    if (isResendCoolingDown.value) {
+      error.value = '操作过于频繁，请稍后再试。';
+      return false;
+    }
+
+    loading.value = true;
+    error.value = null;
+
+    try {
+      const response = await mockFetch('/v1/auth/resend-verification-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          // @ts-ignore
+          email: verificationState.value.email,
+          // @ts-ignore
+          type: verificationState.value.type,
+          // @ts-ignore
+          oldVerificationToken: verificationState.value.verificationToken,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.code === 200) {
+        // 更新 token 和时间戳
+        setVerificationState({
+          // @ts-ignore
+          type: verificationState.value.type,
+          // @ts-ignore
+          email: verificationState.value.email,
+          verificationToken: result.data.verificationToken,
+        });
+        // 开启60秒冷却
+        resendCooldownEndTimestamp.value = Date.now() + 60 * 1000;
+        return true;
+      }
+      // 处理请求频繁的特殊错误
+      if (result.code === 429 && result.message.includes('频繁')) {
+        resendCooldownEndTimestamp.value = Date.now() + 60 * 1000; // 与后端同步，也开启冷却
+        throw new Error('操作过于频繁，请稍后再试。');
+      }
+
+      throw new Error(result.message || '发送失败，请稍后重试');
+    } catch (e: any) {
+      error.value = e?.message || '发送失败，请稍后重试';
+      return false;
+    } finally {
+      loading.value = false;
+    }
+  }
+
   /**
    * 统一处理验证码或邮件 Token 验证
    * @param payload 包含验证所需信息
@@ -300,10 +380,105 @@ export const useAuthStore = defineStore('auth', () => {
     verificationStateValue: computed(() => verificationState.value),
     hasActiveVerification,
     verificationRemainingMs,
+    // 新增：重发冷却相关
+    isResendCoolingDown,
+    resendCooldownSeconds,
+
     setVerificationState,
     setPasswordResetToken,
     clearVerificationState,
     cleanupAfterVerification,
+    
+    // Actions
     unifiedVerify,
+    resendVerificationCode,
   };
 });
+
+// Helper function to create a new AbortController with a timeout
+function createAbortController(timeoutMs: number): AbortController {
+  const controller = new AbortController();
+  setTimeout(() => controller.abort(), timeoutMs);
+  return controller;
+}
+
+/**
+ * Mocks the fetch API for demonstration purposes.
+ * In a real application, this would be replaced by actual network requests.
+ * @param url The URL to fetch.
+ * @param options The fetch options.
+ * @returns A promise that resolves to the mocked response.
+ */
+async function mockFetch(url: string, options: RequestInit): Promise<Response> {
+  console.log(`[Mock Fetch] URL: ${url}`, options);
+
+  const { signal } = options;
+  if (signal?.aborted) {
+    return Promise.reject(new DOMException('Aborted', 'AbortError'));
+  }
+
+  return new Promise((resolve, reject) => {
+    const timeoutId = setTimeout(() => {
+      switch (url) {
+        case '/v1/auth/send-verification-code':
+          // @ts-ignore
+          const body = JSON.parse(options.body);
+          if (body.email && body.type) {
+            resolve(new Response(JSON.stringify({
+              code: 200,
+              message: '验证码已发送',
+              data: {
+                verificationToken: `new-mock-token-${Date.now()}`,
+              }
+            }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+          } else {
+            resolve(new Response(JSON.stringify({
+              code: 400,
+              message: '请求参数错误'
+            }), { status: 400, headers: { 'Content-Type': 'application/json' } }));
+          }
+          break;
+
+        case '/v1/auth/verify-code':
+        // ... other cases can be added here
+          break;
+        
+        case '/v1/auth/resend-verification-code':
+          // @ts-ignore
+          const resendBody = JSON.parse(options.body);
+          // 模拟速率限制
+          if (Math.random() < 0.2) { // 20% 几率触发
+            console.log('[Mock Fetch] Simulating rate limit for resend.');
+            resolve(new Response(JSON.stringify({
+              code: 429,
+              message: '请求过于频繁，请1分钟后再试'
+            }), { status: 429, headers: { 'Content-Type': 'application/json' } }));
+          } else if (resendBody.email && resendBody.oldVerificationToken) {
+            resolve(new Response(JSON.stringify({
+              code: 200,
+              message: '新的验证码已发送',
+              data: {
+                verificationToken: `new-mock-token-${Date.now()}`,
+              }
+            }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+          }
+          break;
+
+        default:
+          resolve(new Response(JSON.stringify({
+            code: 404,
+            message: '接口未找到'
+          }), { status: 404, headers: { 'Content-Type': 'application/json' } }));
+          break;
+      }
+    }, 500); // 500ms network delay
+
+    if (signal) {
+      signal.addEventListener('abort', () => {
+        clearTimeout(timeoutId);
+        reject(new DOMException('Aborted', 'AbortError'));
+      });
+    }
+  });
+}
+
