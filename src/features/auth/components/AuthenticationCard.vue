@@ -69,6 +69,7 @@ function handleVerificationSuccess(result: any) {
     if (result.data?.accessToken) {
       authStore.login({
         accessToken: result.data.accessToken,
+        expiresIn: result.data.expiresIn,
       })
     }
 

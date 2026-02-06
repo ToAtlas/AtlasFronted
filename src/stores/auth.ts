@@ -29,13 +29,136 @@ export const useAuthStore = defineStore('auth', () => {
   // ==================== 认证状态 (重构后) ====================
   // State: accessToken 只存储在内存中
   const accessToken = ref<string | null>(null)
+  const tokenExpiresAt = ref<number | null>(null)
+  const refreshTimerId = ref<number | null>(null)
+  const listenersAttached = ref(false)
+  const visibilityHandler = ref<(() => void) | null>(null)
+  const onlineHandler = ref<(() => void) | null>(null)
+
+  const DEFAULT_ACCESS_TOKEN_TTL_MS = 2 * 60 * 60 * 1000
+  const REFRESH_EARLY_MS = 2 * 60 * 1000
+  const MIN_REFRESH_DELAY_MS = 30 * 1000
 
   // Getter: 一个计算属性，用于判断用户是否已认证
   const isAuthenticated = computed(() => !!accessToken.value)
 
+  function parseExpiresInToMs(expiresIn?: string | number): number | null {
+    if (expiresIn === undefined || expiresIn === null) {
+      return null
+    }
+    if (typeof expiresIn === 'number' && Number.isFinite(expiresIn)) {
+      return expiresIn > 0 ? expiresIn * 1000 : null
+    }
+    if (typeof expiresIn === 'string') {
+      const trimmed = expiresIn.trim()
+      if (trimmed.endsWith('s')) {
+        const seconds = Number(trimmed.slice(0, -1))
+        return Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : null
+      }
+      const seconds = Number(trimmed)
+      return Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : null
+    }
+    return null
+  }
+
+  function clearSilentRefreshTimer() {
+    if (typeof window === 'undefined') {
+      return
+    }
+    if (refreshTimerId.value !== null) {
+      window.clearTimeout(refreshTimerId.value)
+      refreshTimerId.value = null
+    }
+  }
+
+  async function triggerSilentRefresh(_reason: string) {
+    if (!isAuthenticated.value) {
+      return
+    }
+    if (loading.value) {
+      return
+    }
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+      return
+    }
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      return
+    }
+    await refreshAccessToken()
+  }
+
+  function scheduleSilentRefresh(reason: string) {
+    if (typeof window === 'undefined') {
+      return
+    }
+    clearSilentRefreshTimer()
+    if (!isAuthenticated.value) {
+      return
+    }
+    const nowMs = Date.now()
+    const expiresAt = tokenExpiresAt.value ?? (nowMs + DEFAULT_ACCESS_TOKEN_TTL_MS)
+    tokenExpiresAt.value = expiresAt
+    const delay = Math.max(expiresAt - nowMs - REFRESH_EARLY_MS, MIN_REFRESH_DELAY_MS)
+
+    refreshTimerId.value = window.setTimeout(() => {
+      void triggerSilentRefresh(reason)
+    }, delay)
+  }
+
+  function attachSilentRefreshListeners() {
+    if (listenersAttached.value || typeof window === 'undefined') {
+      return
+    }
+
+    visibilityHandler.value = () => {
+      if (document.visibilityState === 'visible') {
+        const nowMs = Date.now()
+        if (tokenExpiresAt.value && tokenExpiresAt.value - nowMs <= REFRESH_EARLY_MS) {
+          void triggerSilentRefresh('visibility')
+        }
+        else {
+          scheduleSilentRefresh('visibility')
+        }
+      }
+    }
+
+    onlineHandler.value = () => {
+      const nowMs = Date.now()
+      if (tokenExpiresAt.value && tokenExpiresAt.value - nowMs <= REFRESH_EARLY_MS) {
+        void triggerSilentRefresh('online')
+      }
+      else {
+        scheduleSilentRefresh('online')
+      }
+    }
+
+    window.addEventListener('visibilitychange', visibilityHandler.value)
+    window.addEventListener('online', onlineHandler.value)
+    listenersAttached.value = true
+  }
+
+  function detachSilentRefreshListeners() {
+    if (!listenersAttached.value || typeof window === 'undefined') {
+      return
+    }
+    if (visibilityHandler.value) {
+      window.removeEventListener('visibilitychange', visibilityHandler.value)
+      visibilityHandler.value = null
+    }
+    if (onlineHandler.value) {
+      window.removeEventListener('online', onlineHandler.value)
+      onlineHandler.value = null
+    }
+    listenersAttached.value = false
+  }
+
   // Action: 登录操作 (只保存 accessToken)
-  function login(data: { accessToken: string }) {
+  function login(data: { accessToken: string, expiresIn?: string | number }) {
     accessToken.value = data.accessToken
+    const expiresInMs = parseExpiresInToMs(data.expiresIn)
+    tokenExpiresAt.value = Date.now() + (expiresInMs ?? DEFAULT_ACCESS_TOKEN_TTL_MS)
+    attachSilentRefreshListeners()
+    scheduleSilentRefresh('login')
   }
 
   // Action: 注销操作
@@ -49,6 +172,9 @@ export const useAuthStore = defineStore('auth', () => {
     }
     finally {
       // 清理前端状态
+      clearSilentRefreshTimer()
+      detachSilentRefreshListeners()
+      tokenExpiresAt.value = null
       accessToken.value = null
       if (clearAuthConfigCache) {
         const configStore = useConfigStore()
@@ -68,7 +194,10 @@ export const useAuthStore = defineStore('auth', () => {
       const response = await api.post('/v1/auth/refresh')
       const result = response.data
       if (result.code === 200 && result.data.accessToken) {
-        login(result.data)
+        login({
+          accessToken: result.data.accessToken,
+          expiresIn: result.data.expiresIn,
+        })
         return true
       }
       else {
@@ -92,8 +221,12 @@ export const useAuthStore = defineStore('auth', () => {
    * @returns {Promise<void>}
    */
   async function initializeAuth() {
+    attachSilentRefreshListeners()
     if (!isAuthenticated.value) {
       await refreshAccessToken()
+    }
+    else {
+      scheduleSilentRefresh('initialize')
     }
   }
 

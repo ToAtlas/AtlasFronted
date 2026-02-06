@@ -42,7 +42,7 @@ async function handleSubmit({ values, errors }: { values: any, errors: any }) {
     // 检查业务代码
     if (result.code === 200) {
       // 登录成功
-      authStore.login({ accessToken: result.data.accessToken }) // 使用 auth store 保存 token
+      authStore.login({ accessToken: result.data.accessToken, expiresIn: result.data.expiresIn }) // 使用 auth store 保存 token
       Message.success('登录成功！')
 
       // 检查是否有重定向目标
