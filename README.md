@@ -1,4 +1,4 @@
-# AtlasFronted
+# Atlas Frontend
 
 This template should help get you started developing with Vue 3 in Vite.
 
@@ -33,6 +33,12 @@ pnpm install
 
 ```sh
 pnpm dev
+```
+
+For the test backend, run the following command in a separate terminal:
+
+```sh
+pnpm dev:backend
 ```
 
 ### Type-Check, Compile and Minify for Production
