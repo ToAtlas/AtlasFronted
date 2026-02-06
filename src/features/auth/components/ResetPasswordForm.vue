@@ -1,62 +1,64 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue';
-import { Message } from '@arco-design/web-vue';
-import { useAuthStore } from '@/stores/auth';
-import { useConfigStore } from '@/stores/config';
-
-onMounted(() => {
-  const configStore = useConfigStore();
-  document.title = `${configStore.brandName} 重置密码`;
-});
+import { Message } from '@arco-design/web-vue'
+import { onMounted, reactive, ref } from 'vue'
+import { useAuthStore } from '@/stores/auth'
+import { useConfigStore } from '@/stores/config'
 
 const props = defineProps<{
-  email: string;
-}>();
+  email: string
+}>()
 
-const emit = defineEmits(['show-login']);
+const emit = defineEmits(['showLogin'])
 
-const authStore = useAuthStore();
+onMounted(() => {
+  const configStore = useConfigStore()
+  document.title = `${configStore.brandName} 重置密码`
+})
+
+const authStore = useAuthStore()
 
 const formModel = reactive({
   password: '',
   passwordConfirm: '',
-});
+})
 
-const loading = ref(false);
-const errorMessage = ref('');
+const loading = ref(false)
+const errorMessage = ref('')
 
-const passwordValidator = (value: string, callback: (error?: string) => void) => {
+function passwordValidator(value: string, callback: (error?: string) => void) {
   // 密码必须至少为8位，且包含字母和数字
-  const regex = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/;
+  const regex = /^(?=.*[A-Z])(?=.*\d).{8,}$/i
   if (value && !regex.test(value)) {
-    callback('密码必须至少为8位，且包含字母和数字');
-  } else {
-    callback();
+    callback('密码必须至少为8位，且包含字母和数字')
   }
-};
+  else {
+    callback()
+  }
+}
 
-const handleSubmit = async ({ values, errors }: { values: any, errors: any }) => {
-  if (errors) return;
+async function handleSubmit({ values, errors }: { values: any, errors: any }) {
+  if (errors)
+    return
 
-  loading.value = true;
-  errorMessage.value = '';
+  loading.value = true
+  errorMessage.value = ''
 
   try {
     // 从 store 获取邮箱和重置令牌
-    const email = props.email || authStore.verificationStateValue.email || '';
+    const email = props.email || authStore.verificationStateValue.email || ''
     if (!email) {
-      errorMessage.value = '邮箱缺失，请重新验证';
-      authStore.clearVerificationState();
-      loading.value = false;
-      return;
+      errorMessage.value = '邮箱缺失，请重新验证'
+      authStore.clearVerificationState()
+      loading.value = false
+      return
     }
 
-    const passwordResetToken = authStore.verificationStateValue.passwordResetToken;
+    const passwordResetToken = authStore.verificationStateValue.passwordResetToken
     if (!passwordResetToken) {
-      errorMessage.value = '重置令牌缺失，请重新验证';
-      authStore.clearVerificationState();
-      loading.value = false;
-      return;
+      errorMessage.value = '重置令牌缺失，请重新验证'
+      authStore.clearVerificationState()
+      loading.value = false
+      return
     }
 
     const response = await fetch('/v1/auth/reset-password', {
@@ -67,45 +69,50 @@ const handleSubmit = async ({ values, errors }: { values: any, errors: any }) =>
         passwordResetToken,
         ...values,
       }),
-    });
-    const result = await response.json();
+    })
+    const result = await response.json()
 
     if (result.code === 200) {
-      Message.success('密码重置成功，请重新登录');
-      
+      Message.success('密码重置成功，请重新登录')
+
       // 清理所有验证状态
-      authStore.clearVerificationState();
-      
-      emit('show-login');
-    } else if (result.code === 429) {
-      errorMessage.value = result.message || '操作过于频繁，请稍后再试';
-      // 操作频繁，清空状态让用户重新开始
-      authStore.clearVerificationState();
-    } else if (result.code === 401) {
-      errorMessage.value = result.message || '账号验证失败';
-      // 验证失败，清空状态
-      authStore.clearVerificationState();
-    } else {
-      errorMessage.value = result.message || '重置密码失败';
+      authStore.clearVerificationState()
+
+      emit('showLogin')
     }
-  } catch (error) {
-    errorMessage.value = '网络请求失败';
-    authStore.clearVerificationState();
-  } finally {
-    loading.value = false;
+    else if (result.code === 429) {
+      errorMessage.value = result.message || '操作过于频繁，请稍后再试'
+      // 操作频繁，清空状态让用户重新开始
+      authStore.clearVerificationState()
+    }
+    else if (result.code === 401) {
+      errorMessage.value = result.message || '账号验证失败'
+      // 验证失败，清空状态
+      authStore.clearVerificationState()
+    }
+    else {
+      errorMessage.value = result.message || '重置密码失败'
+    }
   }
-};
+  catch {
+    errorMessage.value = '网络请求失败'
+    authStore.clearVerificationState()
+  }
+  finally {
+    loading.value = false
+  }
+}
 
 // 手动返回登录（清空所有验证状态）
-const handleBackToLogin = () => {
-  authStore.clearVerificationState();
-  emit('show-login');
-};
+function handleBackToLogin() {
+  authStore.clearVerificationState()
+  emit('showLogin')
+}
 </script>
 
 <template>
   <div class="reset-password-form-wrapper">
-    <a-form class="reset-password-form" :model="formModel" @submit="handleSubmit" :layout="'vertical'">
+    <a-form class="reset-password-form" :model="formModel" layout="vertical" @submit="handleSubmit">
       <a-typography-title :heading="3" :style="{ marginBottom: '16px', textAlign: 'left', fontWeight: '600', color: 'var(--text-color)' }">
         重置密码
       </a-typography-title>
@@ -114,7 +121,7 @@ const handleBackToLogin = () => {
         为账号 <span class="email-highlight">{{ props.email }}</span> 设置新密码
       </p>
 
-      <a-alert type="error" v-if="errorMessage" :style="{ marginBottom: '20px' }">
+      <a-alert v-if="errorMessage" type="error" :style="{ marginBottom: '20px' }">
         {{ errorMessage }}
       </a-alert>
 
@@ -127,11 +134,15 @@ const handleBackToLogin = () => {
       </a-form-item>
 
       <a-form-item class="button-item">
-        <a-button type="primary" html-type="submit" long size="large" :loading="loading">完成</a-button>
+        <a-button type="primary" html-type="submit" long size="large" :loading="loading">
+          完成
+        </a-button>
       </a-form-item>
 
       <div class="back-to-login">
-        <a-link @click="handleBackToLogin" :disabled="loading">返回登录</a-link>
+        <a-link :disabled="loading" @click="handleBackToLogin">
+          返回登录
+        </a-link>
       </div>
     </a-form>
   </div>

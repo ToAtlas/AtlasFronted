@@ -1,38 +1,38 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref, computed } from 'vue';
-import { useRouter } from 'vue-router';
-import { Message } from '@arco-design/web-vue';
-import { useAuthStore } from '@/stores/auth';
-import { useConfigStore } from '@/stores/config';
+import { Message } from '@arco-design/web-vue'
+import { computed, onMounted, reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
+import { useConfigStore } from '@/stores/config'
 
-const emit = defineEmits(['show-register', 'show-forgot-password']);
-const router = useRouter();
-const authStore = useAuthStore();
-const configStore = useConfigStore();
+const emit = defineEmits(['showRegister', 'showForgotPassword'])
+const router = useRouter()
+const authStore = useAuthStore()
+const configStore = useConfigStore()
 
 // 动态页面标题和欢迎语
 onMounted(() => {
-  document.title = `${configStore.brandName} 登录`;
-});
+  document.title = `${configStore.brandName} 登录`
+})
 
-const welcomeText = computed(() => `欢迎来到${configStore.brandName}`);
+const welcomeText = computed(() => `欢迎来到${configStore.brandName}`)
 
 const formModel = reactive({
   email: '',
   password: '',
-});
+})
 
-const loading = ref(false);
-const errorMessage = ref('');
+const loading = ref(false)
+const errorMessage = ref('')
 
-const handleSubmit = async ({ values, errors }: { values: any, errors: any }) => {
+async function handleSubmit({ values, errors }: { values: any, errors: any }) {
   if (errors) {
     // 如果表单验证失败，则不继续
-    return;
+    return
   }
 
-  loading.value = true;
-  errorMessage.value = '';
+  loading.value = true
+  errorMessage.value = ''
 
   try {
     const response = await fetch('/v1/auth/login/email-password', {
@@ -41,56 +41,60 @@ const handleSubmit = async ({ values, errors }: { values: any, errors: any }) =>
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(values),
-    });
+    })
 
-    let result;
+    let result
     try {
       // 优先尝试解析服务器返回的任何内容
-      result = await response.json();
-    } catch (e) {
+      result = await response.json()
+    }
+    catch (e) {
       // 如果响应不是有效的JSON（例如500错误返回HTML页面），则会在这里捕获
-      console.error('JSON parsing error:', e);
-      errorMessage.value = `服务器响应格式错误 (${response.status} ${response.statusText})。`;
-      return;
+      console.error('JSON parsing error:', e)
+      errorMessage.value = `服务器响应格式错误 (${response.status} ${response.statusText})。`
+      return
     }
 
     // 检查业务代码和HTTP状态码
     if (response.ok && result.code === 200) {
       // 登录成功
-      authStore.login(result.data); // 使用 auth store 保存 token
-      Message.success('登录成功！');
+      authStore.login(result.data) // 使用 auth store 保存 token
+      Message.success('登录成功！')
       // 跳转到工作台页面
-      router.push({ name: 'workspace' });
-    } else {
+      router.push({ name: 'workspace' })
+    }
+    else {
       // 对于业务错误(result.code !== 200)或HTTP错误(!response.ok)
       // 都优先使用后端返回的message字段
-      errorMessage.value = result.message || '未知错误，请稍后再试。';
+      errorMessage.value = result.message || '未知错误，请稍后再试。'
     }
-  } catch (error) {
-    // 这个 catch 现在主要捕获网络级别的错误 (e.g., DNS, no connection)
-    console.error('Login request failed', error);
-    errorMessage.value = '网络请求失败，请检查您的网络连接。';
-  } finally {
-    loading.value = false;
   }
-};
+  catch (error) {
+    // 这个 catch 现在主要捕获网络级别的错误 (e.g., DNS, no connection)
+    console.error('Login request failed', error)
+    errorMessage.value = '网络请求失败，请检查您的网络连接。'
+  }
+  finally {
+    loading.value = false
+  }
+}
 
-const handleSsoLogin = () => {
+function handleSsoLogin() {
   // 目前只是占位，显示提示
-  Message.warning('暂不支持SSO登录');
+  Message.warning('暂不支持SSO登录')
 
   // 未来真实实现：
   // window.location.href = configStore.ssoEndpoint;
-};
+}
 </script>
 
 <template>
-  <a-form class="login-form" :model="formModel" @submit="handleSubmit" :layout="'vertical'">
+  <a-form class="login-form" :model="formModel" layout="vertical" @submit="handleSubmit">
     <a-typography-title :heading="3" :style="{ marginBottom: '32px', textAlign: 'left', fontWeight: '600', color: 'var(--text-color)', marginLeft: '0.5rem' }">
       {{ welcomeText }}
     </a-typography-title>
 
-    <a-alert type="error" v-if="errorMessage" :style="{ marginBottom: '20px' }">
+    <a-alert v-if="errorMessage" type="error" :style="{ marginBottom: '20px' }">
       {{ errorMessage }}
     </a-alert>
 
@@ -105,11 +109,15 @@ const handleSsoLogin = () => {
       </a-form-item>
 
       <div class="forgot-password-link">
-        <a-link @click="emit('show-forgot-password')" :disabled="loading">忘记密码</a-link>
+        <a-link :disabled="loading" @click="emit('showForgotPassword')">
+          忘记密码
+        </a-link>
       </div>
 
       <a-form-item class="button-item">
-        <a-button type="primary" html-type="submit" long size="large" :loading="loading">登录</a-button>
+        <a-button type="primary" html-type="submit" long size="large" :loading="loading">
+          登录
+        </a-button>
       </a-form-item>
     </template>
 
@@ -122,7 +130,9 @@ const handleSsoLogin = () => {
 
     <!-- 注册链接 - 根据配置显示/隐藏 -->
     <div v-if="configStore.allowRegister && configStore.isPasswordEnabled" class="register-link">
-      没有账号？<a-link @click="emit('show-register')" :disabled="loading">立即注册</a-link>
+      没有账号？<a-link :disabled="loading" @click="emit('showRegister')">
+        立即注册
+      </a-link>
     </div>
   </a-form>
 </template>

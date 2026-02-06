@@ -1,27 +1,27 @@
 <script setup lang="ts">
-import { onMounted } from 'vue';
-import { useRouter } from 'vue-router';
-import { Message } from '@arco-design/web-vue';
-import { useAuthStore } from '@/stores/auth';
+import { Message } from '@arco-design/web-vue'
+import { onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 
-const router = useRouter();
-const authStore = useAuthStore();
+const router = useRouter()
+const authStore = useAuthStore()
 
 // onMounted 钩子会在组件加载后执行
 onMounted(() => {
   // 检查用户是否已认证，如果未认证，则重定向到登录页
   if (!authStore.isAuthenticated) {
-    Message.error('请先登录');
-    router.push({ name: 'login' });
+    Message.error('请先登录')
+    router.push({ name: 'login' })
   }
-});
+})
 
-const handleLogout = async () => {
+async function handleLogout() {
   // 从 store 中获取 refreshToken
-  const token = authStore.refreshToken;
+  const token = authStore.refreshToken
   if (!token) {
-    Message.error('无法注销，未找到 Refresh Token');
-    return;
+    Message.error('无法注销，未找到 Refresh Token')
+    return
   }
 
   try {
@@ -31,34 +31,40 @@ const handleLogout = async () => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ refreshToken: token }),
-    });
+    })
 
-    const result = await response.json();
+    const result = await response.json()
 
     // 根据 code 判断结果（200 成功，其它失败）
     if (result.code === 200) {
-      authStore.logout(); // 使用 auth store 清除 token
-      Message.success('注销成功');
-      router.push({ name: 'login' });
-    } else {
-      Message.error(result.message || '注销失败');
+      authStore.logout() // 使用 auth store 清除 token
+      Message.success('注销成功')
+      router.push({ name: 'login' })
     }
-  } catch (error) {
-    Message.error('请求失败，请稍后再试');
+    else {
+      Message.error(result.message || '注销失败')
+    }
   }
-};
+  catch {
+    Message.error('请求失败，请稍后再试')
+  }
+}
 </script>
 
 <template>
   <div class="workspace-container">
     <a-page-header title="Workspace" subtitle="This is a placeholder workspace page." :style="{ background: 'var(--color-bg-2)' }">
       <template #extra>
-        <a-button type="primary" @click="handleLogout">Logout</a-button>
+        <a-button type="primary" @click="handleLogout">
+          Logout
+        </a-button>
       </template>
     </a-page-header>
     <div class="content">
       <a-result status="success" title="Login Successful">
-        <template #subtitle>You are now logged in and have reached the workspace.</template>
+        <template #subtitle>
+          You are now logged in and have reached the workspace.
+        </template>
       </a-result>
     </div>
   </div>

@@ -1,27 +1,25 @@
 <script setup lang="ts">
-import { onMounted } from 'vue';
-import { useRouter } from 'vue-router';
-import { useAuthStore } from '@/stores/auth';
-import { useConfigStore } from '@/stores/config';
-import { useThemeStore } from '@/stores/theme';
-import { IconSun, IconMoon, IconComputer } from '@arco-design/web-vue/es/icon';
+import { IconComputer, IconMoon, IconSun } from '@arco-design/web-vue/es/icon'
+import { onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
+import { useThemeStore } from '@/stores/theme'
 
-const router = useRouter();
-const authStore = useAuthStore();
-const configStore = useConfigStore();
-const themeStore = useThemeStore();
+const router = useRouter()
+const authStore = useAuthStore()
+const themeStore = useThemeStore()
 
-const handleThemeChange = () => {
-  themeStore.applyTheme();
-};
+function handleThemeChange() {
+  themeStore.applyTheme()
+}
 
 // 检测登录状态
 onMounted(() => {
   // 检测登录状态，如果已登录则跳转到工作台
   if (authStore.isAuthenticated) {
-    router.push({ name: 'workspace' });
+    router.push({ name: 'workspace' })
   }
-});
+})
 </script>
 
 <template>
@@ -29,15 +27,15 @@ onMounted(() => {
     <div class="theme-switcher">
       <a-radio-group v-model="themeStore.mode" type="button" @change="handleThemeChange">
         <a-radio value="light">
-          <icon-sun />
+          <IconSun />
           浅色
         </a-radio>
         <a-radio value="dark">
-          <icon-moon />
+          <IconMoon />
           深色
         </a-radio>
         <a-radio value="auto">
-          <icon-computer />
+          <IconComputer />
           跟随系统
         </a-radio>
       </a-radio-group>
@@ -45,7 +43,9 @@ onMounted(() => {
 
     <h1>Homepage</h1>
     <p>This is the placeholder for the future homepage.</p>
-    <router-link to="/login">Go to Login</router-link>
+    <router-link to="/login">
+      Go to Login
+    </router-link>
   </div>
 </template>
 

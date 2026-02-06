@@ -20,10 +20,10 @@ const router = createRouter({
       // 路由级代码分割
       // 这会为此路由生成一个单独的 chunk (WorkspaceView.[hash].js)
       // 当路由被访问时才会懒加载
-      component: () => import('../features/workspace/views/WorkspaceView.vue')
+      component: () => import('../features/workspace/views/WorkspaceView.vue'),
     },
 
-  ]
+  ],
 })
 
 export default router

@@ -1,16 +1,16 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref, computed } from 'vue';
-import { Message } from '@arco-design/web-vue';
-import { useConfigStore } from '@/stores/config';
+import { Message } from '@arco-design/web-vue'
+import { computed, onMounted, reactive, ref } from 'vue'
+import { useConfigStore } from '@/stores/config'
 
-const emit = defineEmits(['show-login', 'show-verification']);
-const configStore = useConfigStore();
+const emit = defineEmits(['showLogin', 'showVerification'])
+const configStore = useConfigStore()
 
 onMounted(() => {
-  document.title = `${configStore.brandName} 注册`;
-});
+  document.title = `${configStore.brandName} 注册`
+})
 
-const registerTitle = computed(() => `立即注册${configStore.brandName}`);
+const registerTitle = computed(() => `立即注册${configStore.brandName}`)
 
 const formModel = reactive({
   name: '',
@@ -18,28 +18,29 @@ const formModel = reactive({
   password: '',
   passwordConfirm: '',
   agree: false,
-});
+})
 
-const loading = ref(false);
-const errorMessage = ref('');
+const loading = ref(false)
+const errorMessage = ref('')
 
-const passwordValidator = (value: string, callback: (error?: string) => void) => {
+function passwordValidator(value: string, callback: (error?: string) => void) {
   // 密码必须至少为8位，且包含字母和数字
-  const regex = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/;
+  const regex = /^(?=.*[A-Z])(?=.*\d).{8,}$/i
   if (value && !regex.test(value)) {
-    callback('密码必须至少为8位，且包含字母和数字');
-  } else {
-    callback();
+    callback('密码必须至少为8位，且包含字母和数字')
   }
-};
+  else {
+    callback()
+  }
+}
 
-const handleSubmit = async ({ values, errors }: { values: any, errors: any }) => {
+async function handleSubmit({ values, errors }: { values: any, errors: any }) {
   if (errors) {
-    return;
+    return
   }
 
-  loading.value = true;
-  errorMessage.value = '';
+  loading.value = true
+  errorMessage.value = ''
 
   try {
     const response = await fetch('/v1/auth/signup/using-email', {
@@ -48,42 +49,47 @@ const handleSubmit = async ({ values, errors }: { values: any, errors: any }) =>
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(values),
-    });
+    })
 
-    const result = await response.json();
+    const result = await response.json()
 
     if (result.code === 200) {
-      Message.success('验证码已发送！');
+      Message.success('验证码已发送！')
 
       // emit 事件让 AuthenticationCard 切换表单，并传递 verificationToken
-      emit('show-verification', {
+      emit('showVerification', {
         email: values.email,
         mode: 'signup',
-        verificationToken: result.data.verificationToken
-      });
-    } else if (result.code === 429) {
-      errorMessage.value = result.message || '操作过于频繁，请稍后再试。';
-    } else if (result.code === 401) {
-      errorMessage.value = result.message || '账号验证失败';
-    } else {
-      errorMessage.value = result.message || '注册失败，请稍后再试。';
+        verificationToken: result.data.verificationToken,
+      })
     }
-  } catch (error) {
-    console.error('Signup request failed', error);
-    errorMessage.value = '网络请求失败，请检查您的网络连接。';
-  } finally {
-    loading.value = false;
+    else if (result.code === 429) {
+      errorMessage.value = result.message || '操作过于频繁，请稍后再试。'
+    }
+    else if (result.code === 401) {
+      errorMessage.value = result.message || '账号验证失败'
+    }
+    else {
+      errorMessage.value = result.message || '注册失败，请稍后再试。'
+    }
   }
-};
+  catch (error) {
+    console.error('Signup request failed', error)
+    errorMessage.value = '网络请求失败，请检查您的网络连接。'
+  }
+  finally {
+    loading.value = false
+  }
+}
 </script>
 
 <template>
-  <a-form class="register-form" :model="formModel" @submit="handleSubmit" :layout="'vertical'">
-    <a-typography-title :heading="3" :style="{ marginBottom: '32px', textAlign: 'left', fontWeight: '600', color: 'var(--text-color)', marginLeft: '0.5rem'}">
+  <a-form class="register-form" :model="formModel" layout="vertical" @submit="handleSubmit">
+    <a-typography-title :heading="3" :style="{ marginBottom: '32px', textAlign: 'left', fontWeight: '600', color: 'var(--text-color)', marginLeft: '0.5rem' }">
       {{ registerTitle }}
     </a-typography-title>
 
-    <a-alert type="error" v-if="errorMessage" :style="{ marginBottom: '20px' }">
+    <a-alert v-if="errorMessage" type="error" :style="{ marginBottom: '20px' }">
       {{ errorMessage }}
     </a-alert>
 
@@ -103,18 +109,22 @@ const handleSubmit = async ({ values, errors }: { values: any, errors: any }) =>
       <a-input-password v-model="formModel.passwordConfirm" placeholder="请再次输入您的密码" size="large" :disabled="loading" />
     </a-form-item>
 
-    <a-form-item field="agree" hide-label :rules="[{ type: 'boolean', true: true, message: '请先同意服务协议'}]" class="agreement-item">
+    <a-form-item field="agree" hide-label :rules="[{ type: 'boolean', true: true, message: '请先同意服务协议' }]" class="agreement-item">
       <a-checkbox v-model="formModel.agree" :disabled="loading">
         我已阅读并同意 <a-link>{{ configStore.brandName }}服务协议</a-link>
       </a-checkbox>
     </a-form-item>
 
     <a-form-item class="button-item">
-      <a-button type="primary" html-type="submit" long size="large" :loading="loading">注册并获取验证码</a-button>
+      <a-button type="primary" html-type="submit" long size="large" :loading="loading">
+        注册并获取验证码
+      </a-button>
     </a-form-item>
 
     <div class="login-link">
-      已有账号？<a-link @click="emit('show-login')" :disabled="loading">返回登录</a-link>
+      已有账号？<a-link :disabled="loading" @click="emit('showLogin')">
+        返回登录
+      </a-link>
     </div>
   </a-form>
 </template>

@@ -1,95 +1,93 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
-import { useRouter, useRoute } from 'vue-router';
-import { useAuthStore } from '@/stores/auth';
-import { useConfigStore } from '@/stores/config';
-import { useThemeStore } from '@/stores/theme';
-import AuthenticationCard from '@/features/auth/components/AuthenticationCard.vue';
+import { computed, onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import AuthenticationCard from '@/features/auth/components/AuthenticationCard.vue'
+import { useAuthStore } from '@/stores/auth'
+import { useConfigStore } from '@/stores/config'
 
-const router = useRouter();
-const route = useRoute();
-const authStore = useAuthStore();
-const configStore = useConfigStore();
-const themeStore = useThemeStore();
-const line1 = ref('');
-const line2 = ref('');
-const fullLine1 = '像扛着';
-const fullLine2 = '整个文档世界';
-const typingSpeed = 200;
-const typingCompleted = ref(false);
+const router = useRouter()
+const route = useRoute()
+const authStore = useAuthStore()
+const configStore = useConfigStore()
+const line1 = ref('')
+const line2 = ref('')
+const fullLine1 = '像扛着'
+const fullLine2 = '整个文档世界'
+const typingSpeed = 200
+const typingCompleted = ref(false)
 
-const isTypingLine1 = computed(() => line1.value.length < fullLine1.length);
+const isTypingLine1 = computed(() => line1.value.length < fullLine1.length)
 
 // 邮件验证参数
 const emailVerificationParams = ref<{
-  verify: boolean;
-  token: string;
-  type: 'signup' | 'forgot-password';
-  email?: string;
-} | null>(null);
+  verify: boolean
+  token: string
+  type: 'signup' | 'forgot-password'
+  email?: string
+} | null>(null)
 
-const typeEffect = async () => {
+async function typeEffect() {
   // Type first line
   for (const char of fullLine1) {
-    line1.value += char;
-    await new Promise((resolve) => setTimeout(resolve, typingSpeed));
+    line1.value += char
+    await new Promise(resolve => setTimeout(resolve, typingSpeed))
   }
 
   // Pause briefly before starting the second line
-  await new Promise((resolve) => setTimeout(resolve, 100));
+  await new Promise(resolve => setTimeout(resolve, 100))
 
   // Type second line
   for (const char of fullLine2) {
-    line2.value += char;
-    await new Promise((resolve) => setTimeout(resolve, typingSpeed));
+    line2.value += char
+    await new Promise(resolve => setTimeout(resolve, typingSpeed))
   }
 
-  typingCompleted.value = true;
-};
+  typingCompleted.value = true
+}
 
 onMounted(async () => {
   // 1. 检测登录状态，如果已登录且不是切换账号模式，则跳转到工作台
   if (authStore.isAuthenticated && !route.query.switch) {
-    router.push({ name: 'workspace' });
-    return; // 跳转后不执行动画
+    router.push({ name: 'workspace' })
+    return // 跳转后不执行动画
   }
 
   // 2. 获取认证配置（带缓存，判断是否需要重新获取）
   const performance = window.performance
   const navigationEntry = performance.getEntriesByType?.('navigation')?.[0] as PerformanceNavigationTiming | PerformanceEntry | undefined
   const isPageRefresh = (navigationEntry as PerformanceNavigationTiming | undefined)?.type === 'reload'
-  await configStore.fetchAuthConfig(isPageRefresh);
+  await configStore.fetchAuthConfig(isPageRefresh)
 
   // 3. 检测邮件验证链接参数
   if (route.query.verify === 'true' && route.query.token && route.query.type) {
-    const type = route.query.type as string;
+    const type = route.query.type as string
     if (type === 'signup' || type === 'forgot-password') {
       emailVerificationParams.value = {
         verify: true,
         token: route.query.token as string,
         type: type as 'signup' | 'forgot-password',
         email: route.query.email as string | undefined,
-      };
+      }
     }
   }
 
   // 4. 播放动画
-  typeEffect();
-});
+  typeEffect()
+})
 </script>
 
 <template>
   <div class="login-view-wrapper">
     <div class="logo-section">
       <div class="logo-container">
-        <img alt="Atlas logo" class="logo" src="/src/assets/logo.svg" />
+        <img alt="Atlas logo" class="logo" src="/src/assets/logo.svg">
         <div class="logo-text">
-          <span>{{ line1 }}<span v-if="isTypingLine1" class="cursor"></span></span>
+          <span>{{ line1 }}<span v-if="isTypingLine1" class="cursor" /></span>
           <span>{{ line2
-            }}<span
-              v-if="!isTypingLine1 && !typingCompleted"
-              class="cursor"
-          ></span></span>
+          }}<span
+            v-if="!isTypingLine1 && !typingCompleted"
+            class="cursor"
+          /></span>
         </div>
       </div>
     </div>
@@ -201,8 +199,6 @@ onMounted(async () => {
   }
   .logo-section {
     display: none; /* Hide the entire logo section */
-  }
-  .form-section {
   }
 }
 </style>
