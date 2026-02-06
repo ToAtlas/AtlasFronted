@@ -1,3 +1,4 @@
+import api from '@/services/api'
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 
@@ -187,10 +188,7 @@ export const useConfigStore = defineStore('config', () => {
   async function fetchGlobalConfig(forceRefresh = false) {
     // 1. 尝试从缓存加载（如果不是强制刷新）
     if (!forceRefresh) {
-      // 手动获取缓存时长，因为 loadCachedConfig 现在需要一个数字
-      const durationStr = localStorage.getItem(GLOBAL_CONFIG_DURATION_KEY)
-      const cacheDuration = durationStr ? Number.parseInt(durationStr, 10) : DEFAULT_CACHE_DURATION
-
+      const cacheDuration = getGlobalCacheDuration()
       const cached = loadCachedConfig<GlobalConfig>(
         GLOBAL_CONFIG_CACHE_KEY,
         GLOBAL_CONFIG_TIMESTAMP_KEY,
@@ -205,20 +203,11 @@ export const useConfigStore = defineStore('config', () => {
     // 2. 缓存未命中或强制刷新，从后端获取
     globalLoading.value = true
     try {
-      const response = await fetch('/v1/config')
-
-      // 检查 HTTP 状态码
-      if (!response.ok) {
-        console.error('Failed to fetch global config: HTTP', response.status)
-        globalConfig.value = getDefaultGlobalConfig()
-        return
-      }
-
-      const result = await response.json()
+      const response = await api.get('/v1/config')
+      const result = response.data
 
       if (result.code === 200 && result.data) {
         globalConfig.value = result.data
-        // 保存到缓存，使用后端配置的缓存时长
         const cacheDuration = result.data.cache?.duration
         saveCachedConfig(
           GLOBAL_CONFIG_CACHE_KEY,
@@ -234,7 +223,6 @@ export const useConfigStore = defineStore('config', () => {
     }
     catch (error) {
       console.error('Failed to fetch global config:', error)
-      // 使用默认配置作为降级方案
       globalConfig.value = getDefaultGlobalConfig()
     }
     finally {
@@ -250,17 +238,14 @@ export const useConfigStore = defineStore('config', () => {
    */
   async function fetchAuthConfig(forceRefresh = false) {
     // 1. 尝试从缓存加载（如果不是强制刷新）
-    // 使用全局配置的缓存时长
     if (!forceRefresh) {
       const globalCacheDuration = getGlobalCacheDuration()
-
       const cached = loadCachedConfig<AuthConfig>(
         AUTH_CONFIG_CACHE_KEY,
         AUTH_CONFIG_TIMESTAMP_KEY,
-        globalCacheDuration, // 直接传递缓存时长
+        globalCacheDuration,
       )
       if (cached) {
-        // 清理可能存在的旧的临时 key
         localStorage.removeItem(`${AUTH_CONFIG_TIMESTAMP_KEY}_duration`)
         authConfig.value = cached
         return
@@ -270,20 +255,11 @@ export const useConfigStore = defineStore('config', () => {
     // 2. 缓存未命中或强制刷新，从后端获取
     authLoading.value = true
     try {
-      const response = await fetch('/v1/auth/config')
-
-      // 检查 HTTP 状态码
-      if (!response.ok) {
-        console.error('Failed to fetch auth config: HTTP', response.status)
-        authConfig.value = getDefaultAuthConfig()
-        return
-      }
-
-      const result = await response.json()
+      const response = await api.get('/v1/auth/config')
+      const result = response.data
 
       if (result.code === 200 && result.data) {
         authConfig.value = result.data
-        // 保存认证配置时，不再保存时长信息，因为它依赖全局配置
         saveCachedConfig(
           AUTH_CONFIG_CACHE_KEY,
           AUTH_CONFIG_TIMESTAMP_KEY,
@@ -297,7 +273,6 @@ export const useConfigStore = defineStore('config', () => {
     }
     catch (error) {
       console.error('Failed to fetch auth config:', error)
-      // 使用默认配置作为降级方案
       authConfig.value = getDefaultAuthConfig()
     }
     finally {

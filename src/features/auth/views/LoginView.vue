@@ -46,19 +46,13 @@ async function typeEffect() {
 }
 
 onMounted(async () => {
-  // 1. 检测登录状态，如果已登录且不是切换账号模式，则跳转到工作台
-  if (authStore.isAuthenticated && !route.query.switch) {
-    router.push({ name: 'workspace' })
-    return // 跳转后不执行动画
-  }
-
-  // 2. 获取认证配置（带缓存，判断是否需要重新获取）
+  // 1. 获取认证配置（带缓存，判断是否需要重新获取）
   const performance = window.performance
   const navigationEntry = performance.getEntriesByType?.('navigation')?.[0] as PerformanceNavigationTiming | PerformanceEntry | undefined
   const isPageRefresh = (navigationEntry as PerformanceNavigationTiming | undefined)?.type === 'reload'
   await configStore.fetchAuthConfig(isPageRefresh)
 
-  // 3. 检测邮件验证链接参数
+  // 2. 检测邮件验证链接参数
   if (route.query.verify === 'true' && route.query.token && route.query.type) {
     const type = route.query.type as string
     if (type === 'signup' || type === 'forgot-password') {
@@ -71,7 +65,7 @@ onMounted(async () => {
     }
   }
 
-  // 4. 播放动画
+  // 3. 播放动画
   typeEffect()
 })
 </script>

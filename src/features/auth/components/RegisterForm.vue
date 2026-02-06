@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import api from '@/services/api'
 import { Message } from '@arco-design/web-vue'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useConfigStore } from '@/stores/config'
@@ -43,15 +44,8 @@ async function handleSubmit({ values, errors }: { values: any, errors: any }) {
   errorMessage.value = ''
 
   try {
-    const response = await fetch('/v1/auth/signup/using-email', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(values),
-    })
-
-    const result = await response.json()
+    const response = await api.post('/v1/auth/signup/using-email', values)
+    const result = response.data
 
     if (result.code === 200) {
       Message.success('验证码已发送！')
@@ -63,19 +57,13 @@ async function handleSubmit({ values, errors }: { values: any, errors: any }) {
         verificationToken: result.data.verificationToken,
       })
     }
-    else if (result.code === 429) {
-      errorMessage.value = result.message || '操作过于频繁，请稍后再试。'
-    }
-    else if (result.code === 401) {
-      errorMessage.value = result.message || '账号验证失败'
-    }
     else {
       errorMessage.value = result.message || '注册失败，请稍后再试。'
     }
   }
-  catch (error) {
+  catch (error: any) {
     console.error('Signup request failed', error)
-    errorMessage.value = '网络请求失败，请检查您的网络连接。'
+    errorMessage.value = error.response?.data?.message || '网络请求失败，请检查您的网络连接。'
   }
   finally {
     loading.value = false

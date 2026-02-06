@@ -1,53 +1,16 @@
 <script setup lang="ts">
 import { Message } from '@arco-design/web-vue'
-import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
 const authStore = useAuthStore()
 
-// onMounted 钩子会在组件加载后执行
-onMounted(() => {
-  // 检查用户是否已认证，如果未认证，则重定向到登录页
-  if (!authStore.isAuthenticated) {
-    Message.error('请先登录')
-    router.push({ name: 'login' })
-  }
-})
-
 async function handleLogout() {
-  // 从 store 中获取 refreshToken
-  const token = authStore.refreshToken
-  if (!token) {
-    Message.error('无法注销，未找到 Refresh Token')
-    return
-  }
-
-  try {
-    const response = await fetch('/v1/auth/logout', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ refreshToken: token }),
-    })
-
-    const result = await response.json()
-
-    // 根据 code 判断结果（200 成功，其它失败）
-    if (result.code === 200) {
-      authStore.logout() // 使用 auth store 清除 token
-      Message.success('注销成功')
-      router.push({ name: 'login' })
-    }
-    else {
-      Message.error(result.message || '注销失败')
-    }
-  }
-  catch {
-    Message.error('请求失败，请稍后再试')
-  }
+  await authStore.logout()
+  Message.success('注销成功')
+  // 注销后手动跳转到登录页
+  router.push({ name: 'home' })
 }
 </script>
 

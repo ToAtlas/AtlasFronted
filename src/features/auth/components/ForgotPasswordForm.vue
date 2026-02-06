@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import api from '@/services/api'
 import { Message } from '@arco-design/web-vue'
 import { onMounted, reactive, ref } from 'vue'
 import { useConfigStore } from '@/stores/config'
@@ -25,14 +26,8 @@ async function handleSubmit({ values, errors }: { values: any, errors: any }) {
   errorMessage.value = ''
 
   try {
-    // 模拟调用发送验证码的接口
-    const response = await fetch('/v1/auth/send-verification-code', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: values.email }),
-    })
-
-    const result = await response.json()
+    const response = await api.post('/v1/auth/send-verification-code', { email: values.email })
+    const result = response.data
 
     if (result.code === 200) {
       Message.success('验证码已发送，请注意查收')
@@ -44,6 +39,8 @@ async function handleSubmit({ values, errors }: { values: any, errors: any }) {
         verificationToken: result.data.verificationToken,
       })
     }
+    // Note: With axios, non-2xx responses will throw, so these checks might be redundant
+    // and are better handled in a catch block.
     else if (result.code === 429) {
       errorMessage.value = result.message || '操作过于频繁，请稍后再试'
     }
@@ -54,8 +51,8 @@ async function handleSubmit({ values, errors }: { values: any, errors: any }) {
       errorMessage.value = result.message || '发送验证码失败'
     }
   }
-  catch {
-    errorMessage.value = '网络请求失败'
+  catch (error: any) {
+    errorMessage.value = error.response?.data?.message || '网络请求失败'
   }
   finally {
     loading.value = false

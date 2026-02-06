@@ -1,3 +1,4 @@
+import api from '@/services/api'
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { useConfigStore } from './config'
@@ -25,33 +26,74 @@ export const useAuthStore = defineStore('auth', () => {
   const loading = ref(false)
   const error = ref<string | null>(null)
 
-  // ==================== 认证状态 ====================
-  // State: 从 localStorage 初始化 state，以保持页面刷新后的登录状态
-  const accessToken = ref<string | null>(localStorage.getItem('accessToken'))
-  const refreshToken = ref<string | null>(localStorage.getItem('refreshToken'))
+  // ==================== 认证状态 (重构后) ====================
+  // State: accessToken 只存储在内存中
+  const accessToken = ref<string | null>(null)
+
   // Getter: 一个计算属性，用于判断用户是否已认证
   const isAuthenticated = computed(() => !!accessToken.value)
 
-  // Action: 登录操作
-  function login(tokens: { accessToken: string, refreshToken: string }) {
-    accessToken.value = tokens.accessToken
-    refreshToken.value = tokens.refreshToken
-    localStorage.setItem('accessToken', tokens.accessToken)
-    localStorage.setItem('refreshToken', tokens.refreshToken)
+  // Action: 登录操作 (只保存 accessToken)
+  function login(data: { accessToken: string }) {
+    accessToken.value = data.accessToken
   }
 
   // Action: 注销操作
-  function logout(clearAuthConfigCache = true) {
-    accessToken.value = null
-    refreshToken.value = null
-    localStorage.removeItem('accessToken')
-    localStorage.removeItem('refreshToken')
+  async function logout(clearAuthConfigCache = true) {
+    // 调用后端接口，清除 httpOnly cookie
+    try {
+      await api.post('/v1/auth/logout')
+    }
+    catch (e) {
+      console.error('Logout API call failed:', e)
+    }
+    finally {
+      // 清理前端状态
+      accessToken.value = null
+      if (clearAuthConfigCache) {
+        const configStore = useConfigStore()
+        configStore.clearAllConfigCache()
+      }
+    }
+  }
 
-    // 可选：清理认证配置缓存，下次登录时重新拉取
-    // 这样可以确保用户下次登录时看到最新的认证配置
-    if (clearAuthConfigCache) {
-      const configStore = useConfigStore()
-      configStore.clearAllConfigCache()
+  /**
+   * Action: 刷新 Access Token
+   * @returns {Promise<boolean>} 是否刷新成功
+   */
+  async function refreshAccessToken(): Promise<boolean> {
+    loading.value = true
+    error.value = null
+    try {
+      const response = await api.post('/v1/auth/refresh')
+      const result = response.data
+      if (result.code === 200 && result.data.accessToken) {
+        login(result.data)
+        return true
+      }
+      else {
+        // 如果刷新失败（例如 refreshToken 也过期了），则清空所有状态
+        await logout()
+        return false
+      }
+    }
+    catch (e) {
+      await logout()
+      return false
+    }
+    finally {
+      loading.value = false
+    }
+  }
+
+  /**
+   * Action: 初始化认证状态
+   * 在应用启动时调用，尝试用 refreshToken 恢复会话
+   * @returns {Promise<void>}
+   */
+  async function initializeAuth() {
+    if (!isAuthenticated.value) {
+      await refreshAccessToken()
     }
   }
 
@@ -243,17 +285,12 @@ export const useAuthStore = defineStore('auth', () => {
     error.value = null
 
     try {
-      const response = await fetch('/v1/auth/resend-verification-code', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email,
-          type,
-          oldVerificationToken: verificationToken,
-        }),
+      const response = await api.post('/v1/auth/resend-verification-code', {
+        email,
+        type,
+        oldVerificationToken: verificationToken,
       })
-
-      const result = await response.json()
+      const result = response.data
 
       if (result.code === 200) {
         // 更新 token 和时间戳
@@ -275,7 +312,7 @@ export const useAuthStore = defineStore('auth', () => {
       throw new Error(result.message || '发送失败，请稍后重试')
     }
     catch (e: any) {
-      error.value = e?.message || '发送失败，请稍后重试'
+      error.value = e?.response?.data?.message || e?.message || '发送失败，请稍后重试'
       return false
     }
     finally {
@@ -306,13 +343,8 @@ export const useAuthStore = defineStore('auth', () => {
         ? { verificationToken: payload.token, code: payload.code, type: payload.type }
         : { token: payload.token, type: payload.type }
 
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      })
-
-      const result = await response.json()
+      const response = await api.post(url, body)
+      const result = response.data
 
       if (result.code === 200) {
         // 验证成功
@@ -326,7 +358,8 @@ export const useAuthStore = defineStore('auth', () => {
         return result // 将成功结果返回给组件
       }
       else {
-        // 验证失败，抛出错误由 catch 处理
+        // 验证失败，抛出错误由 catch 处理 (axios 会自动处理)
+        // 但为了保持原有逻辑，我们手动抛出
         const contextLabel
           = payload.type === 'signup'
             ? '注册'
@@ -345,7 +378,7 @@ export const useAuthStore = defineStore('auth', () => {
     }
     catch (e: any) {
       // 记录错误信息
-      const message = e?.message || '验证失败，请重试'
+      const message = e?.response?.data?.message || e?.message || '验证失败，请重试'
       error.value = message
 
       // 仅在不可恢复的错误（如 token 过期/无效）时清理验证状态
@@ -373,10 +406,11 @@ export const useAuthStore = defineStore('auth', () => {
 
     // 认证相关
     accessToken,
-    refreshToken,
     isAuthenticated,
     login,
     logout,
+    refreshAccessToken,
+    initializeAuth,
 
     // 验证状态相关
     verificationStateValue: computed(() => verificationState.value),

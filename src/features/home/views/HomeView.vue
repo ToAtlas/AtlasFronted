@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { IconComputer, IconMoon, IconSun } from '@arco-design/web-vue/es/icon'
-import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
@@ -12,14 +11,6 @@ const themeStore = useThemeStore()
 function handleThemeChange() {
   themeStore.applyTheme()
 }
-
-// 检测登录状态
-onMounted(() => {
-  // 检测登录状态，如果已登录则跳转到工作台
-  if (authStore.isAuthenticated) {
-    router.push({ name: 'workspace' })
-  }
-})
 </script>
 
 <template>

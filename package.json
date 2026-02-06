@@ -12,31 +12,43 @@
     "preview": "vite preview",
     "build-only": "vite build",
     "type-check": "vue-tsc --build",
-    "lint": "eslint . --fix --cache"
+    "lint": "eslint . --fix --cache",
+    "dev:backend": "tsx mock-server/index.ts"
   },
   "dependencies": {
     "@arco-design/web-vue": "^2.57.0",
     "@harbour-enterprises/superdoc": "^1.8.3",
+    "axios": "^1.13.4",
     "pinia": "^3.0.4",
     "vue": "^3.5.26",
     "vue-router": "^4.6.4"
   },
+  "pnpm": {
+    "overrides": {
+      "semver": "6.3.0"
+    }
+  },
   "devDependencies": {
     "@antfu/eslint-config": "^7.2.0",
     "@tsconfig/node24": "^24.0.4",
-    "@types/mockjs": "^1.0.10",
+    "@types/cookie-parser": "^1.4.10",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
     "@types/node": "^24.10.9",
     "@vitejs/plugin-vue": "^6.0.3",
     "@vue/eslint-config-typescript": "^14.6.0",
     "@vue/tsconfig": "^0.8.1",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.6",
     "eslint": "^9.39.2",
     "eslint-plugin-vue": "~10.7.0",
+    "express": "^5.2.1",
     "jiti": "^2.6.1",
-    "mockjs": "^1.1.0",
     "npm-run-all2": "^8.0.4",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.21.0",
     "typescript": "~5.9.3",
     "vite": "^7.3.1",
-    "vite-plugin-mock": "^3.0.2",
     "vite-plugin-vue-devtools": "^8.0.5",
     "vue-tsc": "^3.2.2"
   }

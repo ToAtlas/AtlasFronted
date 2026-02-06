@@ -65,19 +65,24 @@ function handleVerificationSuccess(result: any) {
   const verificationType = verificationMode.value
 
   if (verificationType === 'signup') {
-    // 注册流程的验证成功后，保存 token 并跳转到工作台
-    if (result.data?.accessToken && result.data?.refreshToken) {
+    // 注册流程的验证成功后，保存 accessToken
+    if (result.data?.accessToken) {
       authStore.login({
         accessToken: result.data.accessToken,
-        refreshToken: result.data.refreshToken,
       })
     }
 
     // 清理验证状态
     authStore.clearVerificationState()
 
-    // 清除 URL 参数并跳转
-    router.push({ name: 'workspace' })
+    // 注册成功后，直接跳转到目标页面，而不是回到登录页
+    const redirectPath = router.currentRoute.value.query.redirect
+    if (typeof redirectPath === 'string' && redirectPath) {
+      router.replace(redirectPath)
+    }
+    else {
+      router.replace({ name: 'workspace' })
+    }
   }
   else if (verificationType === 'forgot-password') {
     // 找回密码流程的验证成功后，显示重置密码表单

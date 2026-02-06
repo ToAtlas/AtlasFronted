@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import api from '@/services/api'
 import { Message } from '@arco-design/web-vue'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
@@ -35,44 +36,35 @@ async function handleSubmit({ values, errors }: { values: any, errors: any }) {
   errorMessage.value = ''
 
   try {
-    const response = await fetch('/v1/auth/login/email-password', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(values),
-    })
+    const response = await api.post('/v1/auth/login/email-password', values)
+    const result = response.data
 
-    let result
-    try {
-      // 优先尝试解析服务器返回的任何内容
-      result = await response.json()
-    }
-    catch (e) {
-      // 如果响应不是有效的JSON（例如500错误返回HTML页面），则会在这里捕获
-      console.error('JSON parsing error:', e)
-      errorMessage.value = `服务器响应格式错误 (${response.status} ${response.statusText})。`
-      return
-    }
-
-    // 检查业务代码和HTTP状态码
-    if (response.ok && result.code === 200) {
+    // 检查业务代码
+    if (result.code === 200) {
       // 登录成功
-      authStore.login(result.data) // 使用 auth store 保存 token
+      authStore.login({ accessToken: result.data.accessToken }) // 使用 auth store 保存 token
       Message.success('登录成功！')
-      // 跳转到工作台页面
-      router.push({ name: 'workspace' })
+
+      // 检查是否有重定向目标
+      const redirectPath = router.currentRoute.value.query.redirect
+      if (typeof redirectPath === 'string' && redirectPath) {
+        router.push(redirectPath)
+      }
+      else {
+        // 默认跳转到工作台页面
+        router.push({ name: 'workspace' })
+      }
     }
     else {
-      // 对于业务错误(result.code !== 200)或HTTP错误(!response.ok)
+      // 对于业务错误(result.code !== 200)
       // 都优先使用后端返回的message字段
       errorMessage.value = result.message || '未知错误，请稍后再试。'
     }
   }
-  catch (error) {
-    // 这个 catch 现在主要捕获网络级别的错误 (e.g., DNS, no connection)
+  catch (error: any) {
+    // 这个 catch 现在主要捕获网络级别的错误和非2xx的HTTP状态码
     console.error('Login request failed', error)
-    errorMessage.value = '网络请求失败，请检查您的网络连接。'
+    errorMessage.value = error.response?.data?.message || '网络请求失败，请检查您的网络连接。'
   }
   finally {
     loading.value = false

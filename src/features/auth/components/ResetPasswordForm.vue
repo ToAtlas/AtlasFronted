@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import api from '@/services/api'
 import { Message } from '@arco-design/web-vue'
 import { onMounted, reactive, ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
@@ -61,16 +62,12 @@ async function handleSubmit({ values, errors }: { values: any, errors: any }) {
       return
     }
 
-    const response = await fetch('/v1/auth/reset-password', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email,
-        passwordResetToken,
-        ...values,
-      }),
+    const response = await api.post('/v1/auth/reset-password', {
+      email,
+      passwordResetToken,
+      ...values,
     })
-    const result = await response.json()
+    const result = response.data
 
     if (result.code === 200) {
       Message.success('密码重置成功，请重新登录')
@@ -80,22 +77,16 @@ async function handleSubmit({ values, errors }: { values: any, errors: any }) {
 
       emit('showLogin')
     }
-    else if (result.code === 429) {
-      errorMessage.value = result.message || '操作过于频繁，请稍后再试'
-      // 操作频繁，清空状态让用户重新开始
-      authStore.clearVerificationState()
-    }
-    else if (result.code === 401) {
-      errorMessage.value = result.message || '账号验证失败'
-      // 验证失败，清空状态
-      authStore.clearVerificationState()
-    }
     else {
       errorMessage.value = result.message || '重置密码失败'
+      // 根据错误类型决定是否清除状态
+      if (result.code === 401 || result.code === 429) {
+        authStore.clearVerificationState()
+      }
     }
   }
-  catch {
-    errorMessage.value = '网络请求失败'
+  catch (error: any) {
+    errorMessage.value = error.response?.data?.message || '网络请求失败'
     authStore.clearVerificationState()
   }
   finally {

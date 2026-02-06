@@ -2,7 +2,6 @@ import { fileURLToPath, URL } from 'node:url'
 
 import vue from '@vitejs/plugin-vue'
 import { defineConfig } from 'vite'
-import { viteMockServe } from 'vite-plugin-mock'
 import vueDevTools from 'vite-plugin-vue-devtools'
 
 // https://vite.dev/config/
@@ -10,18 +9,23 @@ export default defineConfig(({ command }) => ({
   plugins: [
     vue(),
     vueDevTools(),
-    viteMockServe({
-      // 指定mock文件夹的路径
-      mockPath: 'src/mock',
-      // 根据 command 动态启用 mock，代替已废弃的 localEnabled 和 prodEnabled
-      enable: command === 'serve',
-      // 忽略以_开头的文件
-      ignore: /^_/,
-    }),
   ],
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
+    },
+  },
+  server: {
+    proxy: {
+      // 分别代理 /v1/config 和 /v1/auth 到 mock-server
+      '/v1/config': {
+        target: 'http://localhost:4000',
+        changeOrigin: true,
+      },
+      '/v1/auth': {
+        target: 'http://localhost:4000',
+        changeOrigin: true,
+      },
     },
   },
   build: {
